@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33103.184
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpcDAToMSA", "OpcDAToMSA.csproj", "{79E30828-0F95-4026-AC4F-586AC0F00EDE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{79E30828-0F95-4026-AC4F-586AC0F00EDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79E30828-0F95-4026-AC4F-586AC0F00EDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79E30828-0F95-4026-AC4F-586AC0F00EDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79E30828-0F95-4026-AC4F-586AC0F00EDE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {259A4FD8-5129-406A-A7DB-747F9B227161}
+	EndGlobalSection
+EndGlobal

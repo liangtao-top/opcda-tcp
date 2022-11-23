@@ -1,0 +1,22 @@
+{
+  "opcda": {
+    "host": "localhost",
+    "server": "Matrikon.OPC.Simulation.1",
+    "items": [
+
+    ],
+    "interval": 1000
+  }, 
+  "modbus_slave_tcp_ip": "0.0.0.0",
+  "modbus_slave_tcp_port": 502,
+  "modbus_slave_id": 1,
+  "modbus_slave_registers": [
+    3043,
+    3045,
+    3021,
+    3027,
+    3019,
+    3015,
+    3017
+  ]
+}

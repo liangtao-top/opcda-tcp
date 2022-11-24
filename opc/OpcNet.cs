@@ -1,61 +1,84 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Opc;
 using Opc.Da;
+using OpcDAToMSA.modbus;
+using OpcDAToMSA.utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Xml;
 
 namespace OPCDA2MSA.opc
 {
     public class OpcNet
     {
 
-        private OpcCom.Factory fact = new OpcCom.Factory();
+        private readonly OpcCom.Factory fact = new OpcCom.Factory();
 
         private Opc.Da.Server server = null;
 
         public List<Item> items = new List<Item>();
 
-        private CfgJson cfg = null;
+        private readonly CfgJson cfg = Config.GetConfig();
 
         //定义枚举基于COM服务器的接口，用来搜索所有的此类服务器。
-        private IDiscovery discovery = new OpcCom.ServerEnumerator();
+        private readonly IDiscovery discovery = new OpcCom.ServerEnumerator();
 
         //选择性的浏览地址空间。
-        private BrowseFilters filters = new BrowseFilters {
+        private readonly BrowseFilters filters = new BrowseFilters
+        {
             ReturnAllProperties = true, //获取数据项的属性
             ReturnPropertyValues = true, //要求返回属性的值
         };
 
+        private readonly ModbusTcp modbusTcp = new ModbusTcp();
+
+        private readonly MsaTcp msaTcp = new MsaTcp();
+
+        public OpcNet()
+        {
+            modbusTcp.Run();
+            //msaTcp.Run();
+        }
+
         // 连接OPC服务器
         public void Connect()
         {
-            cfg = Config.GetConfig();
             string host = cfg.Opcda.Host;
             string node = cfg.Opcda.Server;
 
             Opc.Server[] servers = discovery.GetAvailableServers(Specification.COM_DA_20);
-            for (int i = 0; i < servers.Length; i++)
+            //Console.WriteLine(JsonConvert.SerializeObject(servers));
+            if (servers != null && servers.Length > 0)
             {
-                Console.WriteLine(servers[i].Name);
-                //Console.WriteLine(JsonConvert.SerializeObject(servers[i]));
+                for (int i = 0; i < servers.Length; i++)
+                {
+                    if (servers[i] != null)
+                    {
+                        Console.WriteLine(servers[i].Name);
+                        //Console.WriteLine(JsonConvert.SerializeObject(servers[i]));
+                    }
+                }
             }
-
             //Opc.URL url = new Opc.URL("opcda://localhost/BECKHOFF.TwinCATOpcServerDA");
             URL url = new URL($@"opcda://{host}/{node}");
             server = new Opc.Da.Server(fact, url);
             try
             {
-                server.Connect();
-                Console.WriteLine($@"OPC Server {node} is connected!");
+                server.Connect(url, new ConnectData(new System.Net.NetworkCredential(cfg.Opcda.Username, cfg.Opcda.Password)));
+                //server.Connect();
+                Console.WriteLine($@"OPC Server {node} is connected");
                 SetItems();
                 for (int i = 0; i < items.Count; i++)
                 {
                     Console.WriteLine(items[i].ItemName);
                 }
-                Subscription();
+                ModbusTcp();
+                //MsaTcp();
             }
             catch (Exception e)
             {
@@ -63,6 +86,87 @@ namespace OPCDA2MSA.opc
             }
         }
 
+        public void MsaTcp()
+        {
+            while (true)
+            {
+                //Console.Clear();
+                try
+                {
+                    //Console.ForegroundColor = ConsoleColor.Green;
+                    ItemValueResult[] values = server.Read(items.ToArray());
+                    if (values != null && values.Length > 0)
+                    {
+                        msaTcp.Send(values);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    //Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(ex.Message);
+                    //throw;
+                }
+                Thread.Sleep(cfg.Msa.Interval);
+            }
+        }
+
+        public void ModbusTcp()
+        {
+            int[] regs = cfg.Modbus.Slave.Registers.ToArray();
+            while (true)
+            {
+                //Console.Clear();
+                try
+                {
+                    //Console.ForegroundColor = ConsoleColor.Green;
+                    var values = server.Read(items.ToArray());
+                    if (values != null && values.Length > 0)
+                    {
+                        for (int i = 0; i < values.Length; i++)
+                        {
+                            if (values[i] != null)
+                            {
+                                int index = regs[i];
+                                System.Type type = values[i].Value.GetType();
+                                //Console.WriteLine(type);
+                                Console.WriteLine($@"{values[i].ItemName}@{index}={values[i].Value} {type}");
+
+                                switch (values[i].Value.GetType().ToString())
+                                {
+                                    case "System.Boolean":
+                                        modbusTcp.Store.HoldingRegisters[index] = BitConverter.ToUInt16(ConvertUtil.BoolToBytes((bool)values[i].Value),0);
+                                        break;
+                                    //case "System.Int16":
+                                    //    modbusTcp.Store.HoldingRegisters[index] = BitConverter.ToUInt16(BitConverter.GetBytes((short)values[i].Value), 0);
+                                    //    break;
+                                        //case "System.Int32":
+                                        //    modbusTcp.Store.HoldingRegisters[index] = BitConverter.ToUInt16(BitConverter.GetBytes((uint)values[i].Value), 0);
+                                        //    modbusTcp.Store.HoldingRegisters[index+1] = BitConverter.ToUInt16(BitConverter.GetBytes((uint)values[i].Value), 2);
+                                        //    break;
+                                }
+
+                                //byte[] bytes = ConvertUtil.getByte(values[i].Value);
+                                //Console.WriteLine($@"{BitConverter.ToString(bytes)}@{bytes.Length}");
+                    
+                                //if (bytes.Length > 2) { 
+                                //    modbusTcp.Store.HoldingRegisters[index+1] = BitConverter.ToUInt16(bytes, 2);
+                                //}
+                                //BitConverter.ToUInt16((float)values[i].Value,0);
+                                //modbusTcp.Store.HoldingRegisters[index] = BitConverter.ToUInt16(, 0);
+                                //modbusTcp.Store.HoldingRegisters[index + 1] = BitConverter.ToUInt16(ConvertUtil.ObjectToBytes(values[i].Value), 2);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    //Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(ex.Message);
+                    //throw;
+                }
+                Thread.Sleep(cfg.Opcda.Interval);
+            }
+        }
 
         public void Subscription()
         {
@@ -119,44 +223,6 @@ namespace OPCDA2MSA.opc
             Console.WriteLine("事件信号句柄为：{0}", requestHandle);
         }
 
-        // 获取数据，更新数据 
-        public void Access()
-        {
-            string[] keys = cfg.Opcda.Items.ToArray();
-            Item[] items = new Item[keys.Length];
-            for (int i = 0; i < keys.Length; i++)
-            {
-                items[i] = new Item()
-                {
-                    ItemName = keys[i].ToString(),
-                };
-            }
-            Console.WriteLine(JsonConvert.SerializeObject(items));
-            while (true)
-            {
-                //Console.Clear();
-                try
-                {
-                    //Console.ForegroundColor = ConsoleColor.Green;
-                    var values = server?.Read(items);
-                    foreach (ItemValueResult itemValue in values)
-                    {
-                        //store.HoldingRegisters[(int)regs[Array.IndexOf(keys, itemValue.ItemName)]] = BitConverter.ToUInt16(BitConverter.GetBytes((float)itemValue.Value), 2);
-                        //store.HoldingRegisters[(int)regs[Array.IndexOf(keys, itemValue.ItemName)] + 1] = BitConverter.ToUInt16(BitConverter.GetBytes((float)itemValue.Value), 0);
-                        Console.WriteLine($@"{itemValue.ItemName}@{Array.IndexOf(keys, itemValue.ItemName)}={itemValue.Value}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    //Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine(ex.Message);
-                    //throw;
-                }
-                Thread.Sleep(cfg.Opcda.Interval);
-            }
-
-        }
-
         private void SetItems()
         {
             TreeNode node = new TreeNode(server.Name);
@@ -200,11 +266,11 @@ namespace OPCDA2MSA.opc
                             else
                             {
                                 items.Add(new Item
-                            {
-                                ClientHandle = Guid.NewGuid().ToString(),//客户端给该数据项分配的句柄。
-                                ItemPath = element.ItemPath, //该数据项在服务器中的路径。
-                                ItemName = element.ItemName //该数据项在服务器中的名字。
-                            });
+                                {
+                                    ClientHandle = Guid.NewGuid().ToString(),//客户端给该数据项分配的句柄。
+                                    ItemPath = element.ItemPath, //该数据项在服务器中的路径。
+                                    ItemName = element.ItemName //该数据项在服务器中的名字。
+                                });
                             }
                         }
                         TreeNode newnode = AddBrowseElement(node, element);//加入到TreeView

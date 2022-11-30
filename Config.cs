@@ -35,18 +35,18 @@ namespace OPCDA2MSA
     {
         public OpcDaJson Opcda { get; set; }
         public ModbusJson Modbus { get; set; }
-
         public MsaJson Msa { get; set; }
+        // 指标注册表 位号->编码
+        public Dictionary<string, string> Registers { get; set; }
     }
 
      class OpcDaJson
     {
         public string Host { get; set; }
-        public string Server { get; set; }
+        public string Node { get; set; }
         public string Username { get; set; }
         public string Password { get; set; }
-        public List<string> Items { get; set; }
-        public int Interval { get; set; }
+
     }
 
     class ModbusJson
@@ -56,17 +56,25 @@ namespace OPCDA2MSA
 
     class ModbusSlaveJson
     {
+        // 监听地址
         public string Ip { get; set; }
+        // 监听端口
         public int Port { get; set; }
-        public byte Id { get; set; }
-        public List<int> Registers { get; set; }
+        // 站号
+        public byte Station { get; set; }
     }
 
     class MsaJson
     {
+        // 服务器IP
         public string Ip { get; set; }
+        // 服务器端口
         public int Port { get; set; }
-
+        // 设备唯一编码
+        public uint Mn { get; set; }
+        // 维持TCP的心跳间隔，单位毫秒
+        public int Heartbeat { get; set; }
+        // OPCDA数据上报间隔，单位毫秒
         public int Interval { get; set; }
     }
 }

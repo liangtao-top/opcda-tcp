@@ -28,10 +28,9 @@ namespace OpcDAToMSA.modbus
         public void Run()
         {
             cfg = Config.GetConfig();
-            int[] regs = cfg.Modbus.Slave.Registers.ToArray();
 
             TcpListener slaveTcpListener = new TcpListener(IPAddress.Parse(cfg.Modbus.Slave.Ip), cfg.Modbus.Slave.Port);
-            slave = ModbusTcpSlave.CreateTcp(cfg.Modbus.Slave.Id, slaveTcpListener);
+            slave = ModbusTcpSlave.CreateTcp(cfg.Modbus.Slave.Station, slaveTcpListener);
             slave.DataStore = store = DataStoreFactory.CreateDefaultDataStore();
 
             //订阅数据到达事件，可以在此事件中读取寄存器

@@ -1,35 +1,27 @@
 {
   "opcda": {
     "host": "192.168.147.129",
-    "server": "Matrikon.OPC.Simulation.1",
+    "node": "Matrikon.OPC.Simulation.1",
     "username": "Administrator",
-    "password": "123456",
-    "items": [
-      "A.a",
-      "A.b",
-
-    ],
-    "interval": 3000
+    "password": "123456"
   },
   "msa": {
+    "mn": 100000000,
     "ip": "117.172.118.16",
-    "port": 31107,
-    "interval": 3000
+    "port": 31100,
+    "interval": 10000,
+    "heartbeat": 5000
   },
   "modbus": {
     "slave": {
       "ip": "0.0.0.0",
       "port": 502,
-      "id": 1,
-      "registers": [
-        3043,
-        3045,
-        3021,
-        3027,
-        3019,
-        3015,
-        3017
-      ]
+      "station": 1
     }
+  },
+  "registers": {
+    ".02GA_0729": "511110066004Q0003QT001",
+    ".02GA_0730": "511110066004Q0004QT001",
+    ".02PIA_0703B": "511110066004G0002YL001"
   }
 }

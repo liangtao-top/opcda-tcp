@@ -25,7 +25,7 @@ namespace OpcDAToMSA
             OpcNet client = new OpcNet();
             //OpcAuto client = new();
             client.Connect();
-            Console.ReadKey();
+            client.MsaTcp();
         }
     }
 }

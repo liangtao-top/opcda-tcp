@@ -1,5 +1,4 @@
-﻿using OpcXml.Da;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -8,57 +7,366 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using OPCDA2MSA;
-using System.Net.Http;
-using System.Windows.Forms;
-using System.Reflection;
-using System.Xml.Linq;
-using Newtonsoft.Json.Linq;
 using Opc.Da;
+using Newtonsoft.Json;
+using System.Net.Http;
 
 namespace OpcDAToMSA.modbus
 {
     class MsaTcp
     {
+        private Socket tcpClient;
 
         private readonly CfgJson cfg = Config.GetConfig();
 
-        public void Run() {
-            var cfg = Config.GetConfig();
+        private uint uid = 0;
 
-            //实例化Socket
-            var tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        public void Run()
+        {
+            tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             EndPoint ep = new IPEndPoint(IPAddress.Parse(cfg.Msa.Ip), cfg.Msa.Port);
             try
             {
+                tcpClient.SendTimeout = 1000;
+                //连接Socket
                 tcpClient.Connect(ep);
                 Console.WriteLine($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is connected");
                 Task.Run(new Action(() =>
                 {
-                  
+                    while (true)
+                    {
+                        try
+                        {
+                            tcpClient?.Send(Ping());
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Ping Exception：" + ex.Message);
+                            break;
+                        }
+                        Thread.Sleep(cfg.Msa.Heartbeat);
+                    }
+                }));
+                Task.Run(new Action(() =>
+                {
+                    while (true)
+                    {
+                        byte[] buffer = new byte[1024 * 10];
+                        try
+                        {
+                            int byteCount = tcpClient.Receive(buffer, tcpClient.Available, SocketFlags.None);
+                            if (byteCount > 0)
+                            {
+                                byte[] result = new byte[byteCount];
+                                Buffer.BlockCopy(buffer, 0, result, 0, byteCount);
+                                Receive(result);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Receive Exception：" + ex.Message);
+                            break;
+                        }
+                    }
                 }));
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                Thread.Sleep(cfg.Msa.Heartbeat);
+                Run();
             }
         }
 
-        public void Send(ItemValueResult[] values) {
-            int[] regs = cfg.Modbus.Slave.Registers.ToArray();
+        //接收数据
+        private void Receive(byte[] bytes)
+        {
+            Msa msa = Unpack(bytes);
+            Console.WriteLine("Receive: " + JsonConvert.SerializeObject(msa));
+            FrameFormat1 frameFormat = JsonConvert.DeserializeObject<FrameFormat1>(msa.body);
+            //Console.WriteLine("FrameFormat: " + JsonConvert.SerializeObject(frameFormat));
+            switch (frameFormat.func)
+            {
+                case Func.Pong:
+                    uid = msa.uid;
+                    break;
+                case Func.DeviceNotRegistered:
+                    Console.WriteLine($@"MN：{frameFormat.gid}，{frameFormat.msg}");
+                    break;
+            }
+        }
 
+        public void Send(ItemValueResult[] values)
+        {
+            Dictionary<string, string> regs = cfg.Registers;
+            //Console.WriteLine("regs: " + JsonConvert.SerializeObject(regs));
+            Dictionary<string, object> data = new Dictionary<string, object>();
             for (int i = 0; i < values.Length; i++)
             {
                 if (values[i] != null)
                 {
-                    int index = regs[i];
-                    System.Type type = values[i].Value.GetType();
-                    //Console.WriteLine(type);
-                    Console.WriteLine($@"{values[i].ItemName}@{index}={values[i].Value}");
-                    //Console.WriteLine(JsonConvert.SerializeObject(ConvertUtil.ObjectToBytes(values[i].Value)));
-
+                    if (regs.ContainsKey(values[i].ItemName))
+                    {
+                        regs.TryGetValue(values[i].ItemName, out string key);
+                        data.Add(key, values[i].Value);
+                    }
+                    else
+                    {
+                        Console.WriteLine($@"指标{values[i].ItemName}未在配置项IndexTags注册");
+                    }
                 }
+            }
+            Console.WriteLine("Points: " + JsonConvert.SerializeObject(data));
+            if (data.Count > 0)
+            {
+                bool isSocketConnected = !IsSocketConnected(tcpClient);
+                Console.WriteLine($@"IsSocketConnected：{isSocketConnected}");
+                if (!isSocketConnected)
+                {
+                    tcpClient?.Close();
+                    Run();
+                }
+                tcpClient?.Send(Escalation(data));
+            }
+        }
+
+        // 模板数据封包
+        private byte[] Escalation(Dictionary<string, object> data)
+        {
+            FrameFormat2 frameFormat = new FrameFormat2()
+            {
+                gid = "G" + cfg.Msa.Mn,
+                ptid = 0,
+                cid = 1,
+                time = DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss"),
+                func = Func.TemplateData,
+                level = 103,
+                consume = 0,
+                err = 0,
+                points = data
+            };
+            string body = JsonConvert.SerializeObject(frameFormat);
+            //Console.WriteLine($@"Ping：{body}@{body.Length}");
+            Msa msa = new Msa()
+            {
+                type = Encoding.UTF8.GetBytes("N")[0],//N代表无符号、网络字节序、4 字节
+                uid = uid,
+                length = (uint)body.Length,
+                serid = cfg.Msa.Mn,
+                body = body
+            };
+            Console.WriteLine($@"Escalation：{JsonConvert.SerializeObject(msa)}");
+            return Packet(msa);
+        }
+
+        private byte[] Ping()
+        {
+            FrameFormat0 frameFormat = new FrameFormat0()
+            {
+                gid = "G" + cfg.Msa.Mn,
+                ptid = 0,
+                cid = 1,
+                time = DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss"),
+                func = Func.Ping
+            };
+            string body = JsonConvert.SerializeObject(frameFormat);
+            //Console.WriteLine($@"Ping：{body}@{body.Length}");
+            Msa msa = new Msa()
+            {
+                type = Encoding.UTF8.GetBytes("N")[0],//N代表无符号、网络字节序、4 字节
+                uid = uid,
+                length = (uint)body.Length,
+                serid = cfg.Msa.Mn,
+                body = body
+            };
+            Console.WriteLine($@"Ping：{JsonConvert.SerializeObject(msa)}");
+            return Packet(msa);
+        }
+
+        private byte[] Packet(Msa msa)
+        {
+            //Console.WriteLine(JsonConvert.SerializeObject(msa));
+            byte[] buffer = new byte[msa.length + 16];
+            byte[] type = BitConverter.GetBytes(msa.type);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(type);
+            Array.Copy(type, 0, buffer, 0, type.Length);
+            byte[] uid = BitConverter.GetBytes(msa.uid);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(uid);
+            Array.Copy(uid, 0, buffer, 4, uid.Length);
+            byte[] length = BitConverter.GetBytes(msa.length);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(length);
+            Array.Copy(length, 0, buffer, 8, length.Length);
+            byte[] serid = BitConverter.GetBytes(msa.serid);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(serid);
+            Array.Copy(serid, 0, buffer, 12, serid.Length);
+            byte[] body = Encoding.UTF8.GetBytes(msa.body);
+            Array.Copy(body, 0, buffer, 16, body.Length);
+            //Console.WriteLine($@"{BitConverter.ToString(buffer)}@{buffer.Length}");
+            return buffer;
+        }
+
+        private Msa Unpack(byte[] bytes)
+        {
+            byte[] type = bytes.Skip(0).Take(4).ToArray();
+            //Console.WriteLine($@"{BitConverter.ToString(type)}@{type.Length}");
+            byte[] uid = bytes.Skip(4).Take(4).ToArray();
+            //Console.WriteLine($@"{BitConverter.ToString(uid)}@{uid.Length}");
+            byte[] length = bytes.Skip(8).Take(4).ToArray();
+            //Console.WriteLine($@"{BitConverter.ToString(length)}@{length.Length}");
+            byte[] serid = bytes.Skip(12).Take(4).ToArray();
+            //Console.WriteLine($@"{BitConverter.ToString(serid)}@{serid.Length}");
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(uid);
+                Array.Reverse(length);
+                Array.Reverse(serid);
+            }
+            int byteCount = BitConverter.ToInt32(length, 0);
+            byte[] body = bytes.Skip(16).Take(byteCount).ToArray();
+            //Console.WriteLine($@"{Encoding.UTF8.GetString(body)}@{body.Length}");
+            Msa msa = new Msa()
+            {
+                type = BitConverter.ToUInt32(type, 0),
+                uid = BitConverter.ToUInt32(uid, 0),
+                length = BitConverter.ToUInt32(length, 0),
+                serid = BitConverter.ToUInt32(serid, 0),
+                body = Encoding.UTF8.GetString(body),
+            };
+            return msa;
+        }
+
+        // 检查一个Socket是否可连接
+        private bool IsSocketConnected(Socket client)
+        {
+            bool blockingState = client.Blocking;
+            try
+            {
+                byte[] tmp = new byte[1];
+                client.Blocking = false;
+                client?.Send(tmp, 0, 0);
+                return false;
+            }
+            catch (SocketException e)
+            {
+                // 产生 10035 == WSAEWOULDBLOCK 错误，说明被阻止了，但是还是连接的
+                if (e.NativeErrorCode.Equals(10035))
+                    return false;
+                else
+                    return true;
+            }
+            finally
+            {
+                client.Blocking = blockingState;    // 恢复状态
             }
         }
 
     }
+
+    // MSA协议 包头长度为 4 个整型，16 字节，length 长度值在第 3 个整型处。因此 package_length_offset 设置为 8，0-3 字节为 type，4-7 字节为 uid，8-11 字节为 length，12-15 字节为 serid。
+    struct Msa
+    {
+        public uint type;
+        public uint uid;
+        public uint length;
+        public uint serid;
+        public string body;
+    };
+
+
+    // Ping帧格式
+    struct FrameFormat0
+    {
+        // 网关ID，唯一标识网关出厂 ID
+        public string gid;
+        // 通信点表ID ，用于记录点表文件
+        public uint ptid;
+        // 通道ID，绑 定 到 网 关 的 设 备 号 [1/2/3 ]
+        public uint cid;
+        // 实时时间 "2017/09/04 08:46:40" 
+        public string time;
+        // 功能码
+        public Func func;
+    };
+
+    // 服务器返回状态帧格式
+    struct FrameFormat1
+    {
+        // 网关ID，唯一标识网关出厂 ID
+        public string gid;
+        // 通信点表ID ，用于记录点表文件
+        public uint ptid;
+        // 通道ID，绑 定 到 网 关 的 设 备 号 [1/2/3 ]
+        public uint cid;
+        // 实时时间 "2017/09/04 08:46:40" 
+        public string time;
+        // 功能码
+        public Func func;
+        // 消息提示
+        public string msg;
+    };
+
+    // 数据上报帧格式
+    struct FrameFormat2
+    {
+        // 网关ID，唯一标识网关出厂 ID
+        public string gid;
+        // 通信点表ID ，用于记录点表文件
+        public uint ptid;
+        // 通道ID，绑 定 到 网 关 的 设 备 号 [1/2/3 ]
+        public uint cid;
+        // 实时时间 "2017/09/04 08:46:40" 
+        public string time;
+        // 功能码
+        public Func func;
+        // 采集耗时，网关根据点表采集 PLC 所消耗的时间，单位 ms
+        public uint consume;
+        // 错误代码，0 正常 其他读取失败
+        public int err;
+        // 数据模式
+        // 实时数据/状态 100
+        // 历史数据/状态：101
+        // 变传数据/状态：102
+        // 模板数据/状态：103
+        public int level;
+        // 点位数据
+        public Dictionary<string, object> points;
+    };
+
+    // 功能码
+    enum Func
+    {
+        // 心跳请求帧 1 Client->Server 维持网关与服务器连接
+        Ping = 1,
+        // 实时数据帧 2 Client->Server 采集正常数据内容
+        RealData = 2,
+        // 实时状态帧 3 Client->Server 采集出错信息
+        RealState = 3,
+        // 远程控制回应帧 4 Client->Server 网关接收远程控制命令处理后回应
+        RemoteRev = 4,
+        // AGPS 定位帧 5 Client->Server 基站定位信息(仅 4G 型号支持)
+        AGPS = 5,
+        // 历史数据帧 6 Client->Server 网关离线后存储的设备数据
+        HistoryData = 6,
+        // 历史状态帧 7 Client->Server 网关离线后存储的采集出错信息
+        HistoryState = 7,
+        // 变传数据帧 8 Client->Server 采集数据变化后立刻推送的数据
+        ChangeData = 7,
+        // 变传状态帧 9 Client->Server 采集变化后立刻推送的错误信息
+        ChangeState = 7,
+        // 模板数据帧 10 Client->Server 根据变传周期定时推送的实时数据
+        TemplateData = 10,
+        // 模板状态帧 11 Client->Server 根据变传周期定时推送的错误状态
+        TemplateState = 11,
+        // 心跳回应帧 81 Server->Client 维持网关与服务器连接
+        Pong = 81,
+        // 远程控制请求帧 83 Server->Client 服务器远程控制设备请
+        RemoteReq = 83,
+        // 设备未注册返回帧
+        DeviceNotRegistered = 101,
+    };
+
 }

@@ -1,6 +1,5 @@
 ﻿using Serilog.Core;
 using Serilog;
-using Serilog.Formatting.Json;
 
 namespace OpcDAToMSA.utils
 {

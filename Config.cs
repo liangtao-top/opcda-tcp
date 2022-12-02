@@ -27,7 +27,8 @@ namespace OPCDA2MSA
                 string msg = "配置文件：" + jsonfile + "，不是有效的JSON文件";
                 LoggerUtil.log.Error(msg);
             }
-            LoggerUtil.log.Debug("{@cfg}", cfg);
+            //LoggerUtil.log.Debug("Config: \n{@cfg}", JsonConvert.SerializeObject(cfg, new JsonSerializerSettings() { Formatting = Formatting.Indented }));
+            LoggerUtil.log.Debug("Config: {@cfg}", cfg);
             return cfg;
         }
     }

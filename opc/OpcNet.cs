@@ -4,7 +4,6 @@ using OpcDAToMSA.modbus;
 using OpcDAToMSA.utils;
 using System;
 using System.Collections.Generic;
-using System.Security.Policy;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -78,14 +77,14 @@ namespace OPCDA2MSA.opc
                 {
                     itemsNames[i] = items[i].ItemName;
                 }
-                LoggerUtil.log.Debug("Opc.Da.Server Read Items: {@params}", itemsNames);
+                LoggerUtil.log.Debug("Opc.Da.Server Read Items: {@itemsNames}", itemsNames);
                 SetFilterItems();
                 string[] filterItemsNames = new string[filterItems.Count];
                 for (int i = 0; i < filterItems.Count; i++)
                 {
                     filterItemsNames[i] = filterItems[i].ItemName;
                 }
-                LoggerUtil.log.Information("Opc.Da.Server Filter Items: {@params}", filterItemsNames);
+                LoggerUtil.log.Information("Opc.Da.Server Filter Items: {@filterItemsNames}", filterItemsNames);
             }
             catch (Exception e)
             {

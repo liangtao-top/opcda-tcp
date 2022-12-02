@@ -1,15 +1,8 @@
 ﻿using Microsoft.Win32;
-using Newtonsoft.Json;
 using OPCDA2MSA;
 using OPCDA2MSA.opc;
-using OpcDAToMSA.Properties;
 using OpcDAToMSA.utils;
-using Serilog;
-using Serilog.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 

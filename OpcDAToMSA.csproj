@@ -29,7 +29,7 @@
     <ProductName>OpcDaToMSA</ProductName>
     <PublisherName>Abon</PublisherName>
     <SuiteName>OpcDaToMSA</SuiteName>
-    <ApplicationRevision>8</ApplicationRevision>
+    <ApplicationRevision>9</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <CreateDesktopShortcut>true</CreateDesktopShortcut>
@@ -96,9 +96,6 @@
     <Reference Include="Serilog, Version=2.0.0.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
       <HintPath>packages\Serilog.2.12.1-dev-01594\lib\net47\Serilog.dll</HintPath>
     </Reference>
-    <Reference Include="Serilog.Sinks.Async, Version=1.5.0.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
-      <HintPath>packages\Serilog.Sinks.Async.1.5.0\lib\net461\Serilog.Sinks.Async.dll</HintPath>
-    </Reference>
     <Reference Include="Serilog.Sinks.Console, Version=4.1.1.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
       <HintPath>packages\Serilog.Sinks.Console.4.1.1-dev-00896\lib\net45\Serilog.Sinks.Console.dll</HintPath>
     </Reference>
@@ -106,7 +103,9 @@
       <HintPath>packages\Serilog.Sinks.File.5.0.1-dev-00947\lib\net45\Serilog.Sinks.File.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -124,6 +123,12 @@
     </Compile>
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Installer1.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Installer1.Designer.cs">
+      <DependentUpon>Installer1.cs</DependentUpon>
     </Compile>
     <Compile Include="modbus\ModbusTcp.cs" />
     <Compile Include="modbus\MsaTcp.cs" />

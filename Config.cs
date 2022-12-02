@@ -1,7 +1,5 @@
 ﻿using Newtonsoft.Json;
 using OpcDAToMSA.utils;
-using Serilog;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
@@ -22,14 +20,12 @@ namespace OPCDA2MSA
             {
                 string msg = "找不到配置文件：" + jsonfile;
                 LoggerUtil.log.Error(msg);
-                throw new Exception(msg);
             }
             string jsonStr = File.ReadAllText(jsonfile);
             cfg = JsonConvert.DeserializeObject<CfgJson>(jsonStr);
             if (cfg == null) {
                 string msg = "配置文件：" + jsonfile + "，不是有效的JSON文件";
                 LoggerUtil.log.Error(msg);
-                throw new Exception(msg);
             }
             LoggerUtil.log.Debug("{@cfg}", cfg);
             return cfg;

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using OPCDA2MSA;
 using Opc.Da;
 using Newtonsoft.Json;
-using System.Net.Http;
+using OpcDAToMSA.utils;
 
 namespace OpcDAToMSA.modbus
 {
@@ -30,7 +30,7 @@ namespace OpcDAToMSA.modbus
                 tcpClient.SendTimeout = 1000;
                 //连接Socket
                 tcpClient.Connect(ep);
-                Console.WriteLine($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is connected");
+                LoggerUtil.log.Information($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is connected");
                 Task.Run(new Action(() =>
                 {
                     while (true)
@@ -41,7 +41,7 @@ namespace OpcDAToMSA.modbus
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine("Ping Exception：" + ex.Message);
+                            LoggerUtil.log.Fatal(ex, "Ping Exception");
                             break;
                         }
                         Thread.Sleep(cfg.Msa.Heartbeat);
@@ -64,7 +64,7 @@ namespace OpcDAToMSA.modbus
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine("Receive Exception：" + ex.Message);
+                            LoggerUtil.log.Fatal(ex, "Receive Exception");
                             break;
                         }
                     }
@@ -72,7 +72,7 @@ namespace OpcDAToMSA.modbus
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                LoggerUtil.log.Fatal(ex, "连接 MSA Server 意外终止");
                 Thread.Sleep(cfg.Msa.Heartbeat);
                 Run();
             }
@@ -81,17 +81,16 @@ namespace OpcDAToMSA.modbus
         //接收数据
         private void Receive(byte[] bytes)
         {
-            Msa msa = Unpack(bytes);
-            Console.WriteLine("Receive: " + JsonConvert.SerializeObject(msa));
-            FrameFormat1 frameFormat = JsonConvert.DeserializeObject<FrameFormat1>(msa.body);
-            //Console.WriteLine("FrameFormat: " + JsonConvert.SerializeObject(frameFormat));
+            Msa<FrameFormat1> msa = Unpack<FrameFormat1>(bytes);
+            LoggerUtil.log.Debug("Receive: {@msa}", JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.None, NullValueHandling = NullValueHandling.Ignore }));
+            FrameFormat1 frameFormat = msa.body;
             switch (frameFormat.func)
             {
                 case Func.Pong:
                     uid = msa.uid;
                     break;
                 case Func.DeviceNotRegistered:
-                    Console.WriteLine($@"MN：{frameFormat.gid}，{frameFormat.msg}");
+                    LoggerUtil.log.Warning($@"MN：{frameFormat.gid}，{frameFormat.msg}");
                     break;
             }
         }
@@ -99,7 +98,6 @@ namespace OpcDAToMSA.modbus
         public void Send(ItemValueResult[] values)
         {
             Dictionary<string, string> regs = cfg.Registers;
-            //Console.WriteLine("regs: " + JsonConvert.SerializeObject(regs));
             Dictionary<string, object> data = new Dictionary<string, object>();
             for (int i = 0; i < values.Length; i++)
             {
@@ -112,15 +110,15 @@ namespace OpcDAToMSA.modbus
                     }
                     else
                     {
-                        Console.WriteLine($@"指标{values[i].ItemName}未在配置项IndexTags注册");
+                        LoggerUtil.log.Warning($@"指标{values[i].ItemName}未在配置项Registers注册");
                     }
                 }
             }
-            Console.WriteLine("Points: " + JsonConvert.SerializeObject(data));
+            //LoggerUtil.log.Debug("Points: {@data}", data);
             if (data.Count > 0)
             {
                 bool isSocketConnected = !IsSocketConnected(tcpClient);
-                Console.WriteLine($@"IsSocketConnected：{isSocketConnected}");
+                LoggerUtil.log.Debug("isSocketConnected: {@isSocketConnected}", isSocketConnected);
                 if (!isSocketConnected)
                 {
                     tcpClient?.Close();
@@ -147,15 +145,15 @@ namespace OpcDAToMSA.modbus
             };
             string body = JsonConvert.SerializeObject(frameFormat);
             //Console.WriteLine($@"Ping：{body}@{body.Length}");
-            Msa msa = new Msa()
+            Msa<FrameFormat2> msa = new Msa<FrameFormat2>()
             {
                 type = Encoding.UTF8.GetBytes("N")[0],//N代表无符号、网络字节序、4 字节
                 uid = uid,
                 length = (uint)body.Length,
                 serid = cfg.Msa.Mn,
-                body = body
+                body = frameFormat
             };
-            Console.WriteLine($@"Escalation：{JsonConvert.SerializeObject(msa)}");
+            LoggerUtil.log.Information("Escalation: \n{@msa}", JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.Indented }));
             return Packet(msa);
         }
 
@@ -171,19 +169,19 @@ namespace OpcDAToMSA.modbus
             };
             string body = JsonConvert.SerializeObject(frameFormat);
             //Console.WriteLine($@"Ping：{body}@{body.Length}");
-            Msa msa = new Msa()
+            Msa<FrameFormat0> msa = new Msa<FrameFormat0>()
             {
                 type = Encoding.UTF8.GetBytes("N")[0],//N代表无符号、网络字节序、4 字节
                 uid = uid,
                 length = (uint)body.Length,
                 serid = cfg.Msa.Mn,
-                body = body
+                body = frameFormat
             };
-            Console.WriteLine($@"Ping：{JsonConvert.SerializeObject(msa)}");
+            LoggerUtil.log.Debug("Ping：{@msa}", JsonConvert.SerializeObject(msa));
             return Packet(msa);
         }
 
-        private byte[] Packet(Msa msa)
+        private byte[] Packet<T>(Msa<T> msa)
         {
             //Console.WriteLine(JsonConvert.SerializeObject(msa));
             byte[] buffer = new byte[msa.length + 16];
@@ -203,13 +201,13 @@ namespace OpcDAToMSA.modbus
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(serid);
             Array.Copy(serid, 0, buffer, 12, serid.Length);
-            byte[] body = Encoding.UTF8.GetBytes(msa.body);
+            byte[] body = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(msa.body));
             Array.Copy(body, 0, buffer, 16, body.Length);
             //Console.WriteLine($@"{BitConverter.ToString(buffer)}@{buffer.Length}");
             return buffer;
         }
 
-        private Msa Unpack(byte[] bytes)
+        private Msa<T> Unpack<T>(byte[] bytes)
         {
             byte[] type = bytes.Skip(0).Take(4).ToArray();
             //Console.WriteLine($@"{BitConverter.ToString(type)}@{type.Length}");
@@ -228,13 +226,13 @@ namespace OpcDAToMSA.modbus
             int byteCount = BitConverter.ToInt32(length, 0);
             byte[] body = bytes.Skip(16).Take(byteCount).ToArray();
             //Console.WriteLine($@"{Encoding.UTF8.GetString(body)}@{body.Length}");
-            Msa msa = new Msa()
+            Msa<T> msa = new Msa<T>()
             {
                 type = BitConverter.ToUInt32(type, 0),
                 uid = BitConverter.ToUInt32(uid, 0),
                 length = BitConverter.ToUInt32(length, 0),
                 serid = BitConverter.ToUInt32(serid, 0),
-                body = Encoding.UTF8.GetString(body),
+                body = JsonConvert.DeserializeObject<T>(Encoding.UTF8.GetString(body)),
             };
             return msa;
         }
@@ -267,13 +265,13 @@ namespace OpcDAToMSA.modbus
     }
 
     // MSA协议 包头长度为 4 个整型，16 字节，length 长度值在第 3 个整型处。因此 package_length_offset 设置为 8，0-3 字节为 type，4-7 字节为 uid，8-11 字节为 length，12-15 字节为 serid。
-    struct Msa
+    struct Msa<T>
     {
         public uint type;
         public uint uid;
         public uint length;
         public uint serid;
-        public string body;
+        public T body;
     };
 
 

@@ -1,4 +1,5 @@
 {
+  "autoStart": false,
   "opcda": {
     "host": "192.168.147.129",
     "node": "Matrikon.OPC.Simulation.1",

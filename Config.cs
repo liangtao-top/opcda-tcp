@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using OpcDAToMSA.utils;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,24 +17,29 @@ namespace OPCDA2MSA
                 return cfg;
             }
             string jsonfile = Path.Combine(Application.StartupPath, "config.json");
-            Console.WriteLine(jsonfile);
+            LoggerUtil.log.Debug(jsonfile);
             if (!File.Exists(jsonfile))
             {
-                throw new Exception("找不到配置文件：" + jsonfile);
+                string msg = "找不到配置文件：" + jsonfile;
+                LoggerUtil.log.Error(msg);
+                throw new Exception(msg);
             }
             string jsonStr = File.ReadAllText(jsonfile);
-            //Console.WriteLine(jsonStr);
             cfg = JsonConvert.DeserializeObject<CfgJson>(jsonStr);
             if (cfg == null) {
-                throw new Exception("配置文件：" + jsonfile+ "，不是有效的JSON文件");
+                string msg = "配置文件：" + jsonfile + "，不是有效的JSON文件";
+                LoggerUtil.log.Error(msg);
+                throw new Exception(msg);
             }
-            Console.WriteLine(JsonConvert.SerializeObject(cfg));
+            LoggerUtil.log.Debug("{@cfg}", cfg);
             return cfg;
         }
     }
 
     class CfgJson
     {
+        // 开机自动启动
+        public bool AutoStart { get; set; }
         public OpcDaJson Opcda { get; set; }
         public ModbusJson Modbus { get; set; }
         public MsaJson Msa { get; set; }

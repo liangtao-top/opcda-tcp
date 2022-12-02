@@ -1,8 +1,10 @@
 ﻿using Opc;
 using Opc.Da;
 using OpcDAToMSA.modbus;
+using OpcDAToMSA.utils;
 using System;
 using System.Collections.Generic;
+using System.Security.Policy;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -48,21 +50,19 @@ namespace OPCDA2MSA.opc
             string node = cfg.Opcda.Node;
 
             Opc.Server[] servers = discovery.GetAvailableServers(Specification.COM_DA_20);
-            Console.WriteLine("本地OPCDA服务列表：");
-            //Console.WriteLine(JsonConvert.SerializeObject(servers));
+            LoggerUtil.log.Debug("GetAvailableServers {@servers}", servers);
             if (servers != null && servers.Length > 0)
             {
                 for (int i = 0; i < servers.Length; i++)
                 {
                     if (servers[i] != null)
                     {
-                        Console.WriteLine(servers[i].Name);
-                        //Console.WriteLine(JsonConvert.SerializeObject(servers[i]));
+                        LoggerUtil.log.Information("Opc.Server[{@i}] "+servers[i].Name,i);
                     }
                 }
             }
             else {
-                Console.WriteLine("无");
+                LoggerUtil.log.Information("无");
             }
             //Opc.URL url = new Opc.URL("opcda://localhost/BECKHOFF.TwinCATOpcServerDA");
             URL url = new URL($@"opcda://{host}/{node}");
@@ -71,23 +71,25 @@ namespace OPCDA2MSA.opc
             {
                 server.Connect(url, new ConnectData(new System.Net.NetworkCredential(cfg.Opcda.Username, cfg.Opcda.Password)));
                 //server.Connect();
-                Console.WriteLine($@"OPC Server {node} is connected");
+                LoggerUtil.log.Information($@"Opc Server {node} is connected");
                 SetItems();
-                Console.WriteLine("全量指标列表：");
+                string[] itemsNames = new string [items.Count];
                 for (int i = 0; i < items.Count; i++)
                 {
-                    Console.WriteLine(items[i].ItemName);
+                    itemsNames[i] = items[i].ItemName;
                 }
+                LoggerUtil.log.Debug("Opc.Da.Server Read Items: {@params}", itemsNames);
                 SetFilterItems();
-                Console.WriteLine("有效指标列表：");
+                string[] filterItemsNames = new string[filterItems.Count];
                 for (int i = 0; i < filterItems.Count; i++)
                 {
-                    Console.WriteLine(filterItems[i].ItemName);
+                    filterItemsNames[i] = filterItems[i].ItemName;
                 }
+                LoggerUtil.log.Information("Opc.Da.Server Filter Items: {@params}", filterItemsNames);
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server 意外终止");
             }
         }
 
@@ -95,10 +97,8 @@ namespace OPCDA2MSA.opc
         {
             while (true)
             {
-                //Console.Clear();
                 try
                 {
-                    //Console.ForegroundColor = ConsoleColor.Green;
                     ItemValueResult[] values = server.Read(filterItems.ToArray());
                     if (values != null && values.Length > 0)
                     {
@@ -107,8 +107,8 @@ namespace OPCDA2MSA.opc
                 }
                 catch (Exception ex)
                 {
-                    //Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("MsaTcp Exception：" + ex.Message);
+                    LoggerUtil.log.Fatal(ex, "Opc.Da.Server.Read 意外终止");
+      
                 }
                 Thread.Sleep(cfg.Msa.Interval);
             }

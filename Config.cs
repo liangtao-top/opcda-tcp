@@ -42,9 +42,17 @@ namespace OPCDA2MSA
         public MsaJson Msa { get; set; }
         // 指标注册表 位号->编码
         public Dictionary<string, string> Registers { get; set; }
+        public LoggerJson Logger { get; set; }
     }
 
-     class OpcDaJson
+    class LoggerJson
+    {
+        public string Level { get; set; }
+        public string File { get; set; }
+
+    }
+
+    class OpcDaJson
     {
         public string Host { get; set; }
         public string Node { get; set; }

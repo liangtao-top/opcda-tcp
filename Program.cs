@@ -24,6 +24,7 @@ namespace OpcDAToMSA
             //Application.Run(new Form1());
 
             LoggerUtil.log.Information("Welcome OpcDaToMSA V2022.12.02");
+            LoggerUtil.Configuration(Config.GetConfig().Logger);
 
             AutoStart(Config.GetConfig().AutoStart);
 

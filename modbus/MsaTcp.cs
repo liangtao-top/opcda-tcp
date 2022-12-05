@@ -72,7 +72,7 @@ namespace OpcDAToMSA.modbus
             }
             catch (Exception ex)
             {
-                LoggerUtil.log.Fatal(ex, "连接 MSA Server 意外终止");
+                LoggerUtil.log.Fatal(ex, "连接远程 MSA Server 意外终止");
                 Thread.Sleep(cfg.Msa.Heartbeat);
                 Run();
             }

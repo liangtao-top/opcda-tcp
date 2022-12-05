@@ -43,27 +43,35 @@ namespace OPCDA2MSA.opc
             msaTcp.Run();
         }
 
+        // 获取计算机本地 Opc Server 列表
         public void GetLocalServers()
         {
-            Opc.Server[] servers = discovery.GetAvailableServers(Specification.COM_DA_20);
-            LoggerUtil.log.Debug("GetAvailableServers {@servers}", servers);
-            if (servers != null && servers.Length > 0)
+            try
             {
-                for (int i = 0; i < servers.Length; i++)
+                Opc.Server[] servers = discovery.GetAvailableServers(Specification.COM_DA_20);
+                LoggerUtil.log.Debug("GetAvailableServers {@servers}", servers);
+                if (servers != null && servers.Length > 0)
                 {
-                    if (servers[i] != null)
+                    for (int i = 0; i < servers.Length; i++)
                     {
-                        LoggerUtil.log.Information("Opc.Server[{@i}] " + servers[i].Name, i);
+                        if (servers[i] != null)
+                        {
+                            LoggerUtil.log.Information("Opc.Server[{@i}] " + servers[i].Name, i);
+                        }
                     }
                 }
+                else
+                {
+                    LoggerUtil.log.Information("无");
+                }
             }
-            else
+            catch (Exception e)
             {
-                LoggerUtil.log.Information("无");
+                LoggerUtil.log.Warning(e, "GetAvailableServers");
             }
         }
 
-        // 连接OPC服务器
+        // 连接远程OPC服务器
         public void Connect()
         {
             string host = cfg.Opcda.Host;
@@ -114,7 +122,8 @@ namespace OPCDA2MSA.opc
                             msaTcp.Send(values);
                         }
                     }
-                    else {
+                    else
+                    {
                         LoggerUtil.log.Warning("Opc.Da.Server Read filterItems: {@filterItems}", filterItems);
                     }
                 }

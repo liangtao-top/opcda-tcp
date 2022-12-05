@@ -32,22 +32,19 @@ namespace OPCDA2MSA.opc
             ReturnPropertyValues = true, //要求返回属性的值
         };
 
-        private readonly ModbusTcp modbusTcp = new ModbusTcp();
+        //private readonly ModbusTcp modbusTcp = new ModbusTcp();
 
         private readonly MsaTcp msaTcp = new MsaTcp();
 
         public OpcNet()
         {
+            GetLocalServers();
             //modbusTcp.Run();
             msaTcp.Run();
         }
 
-        // 连接OPC服务器
-        public void Connect()
+        public void GetLocalServers()
         {
-            string host = cfg.Opcda.Host;
-            string node = cfg.Opcda.Node;
-
             Opc.Server[] servers = discovery.GetAvailableServers(Specification.COM_DA_20);
             LoggerUtil.log.Debug("GetAvailableServers {@servers}", servers);
             if (servers != null && servers.Length > 0)
@@ -56,13 +53,22 @@ namespace OPCDA2MSA.opc
                 {
                     if (servers[i] != null)
                     {
-                        LoggerUtil.log.Information("Opc.Server[{@i}] "+servers[i].Name,i);
+                        LoggerUtil.log.Information("Opc.Server[{@i}] " + servers[i].Name, i);
                     }
                 }
             }
-            else {
+            else
+            {
                 LoggerUtil.log.Information("无");
             }
+        }
+
+        // 连接OPC服务器
+        public void Connect()
+        {
+            string host = cfg.Opcda.Host;
+            string node = cfg.Opcda.Node;
+
             //Opc.URL url = new Opc.URL("opcda://localhost/BECKHOFF.TwinCATOpcServerDA");
             URL url = new URL($@"opcda://{host}/{node}");
             server = new Opc.Da.Server(fact, url);
@@ -72,7 +78,7 @@ namespace OPCDA2MSA.opc
                 //server.Connect();
                 LoggerUtil.log.Information($@"Opc Server {node} is connected");
                 SetItems();
-                string[] itemsNames = new string [items.Count];
+                string[] itemsNames = new string[items.Count];
                 for (int i = 0; i < items.Count; i++)
                 {
                     itemsNames[i] = items[i].ItemName;
@@ -89,6 +95,8 @@ namespace OPCDA2MSA.opc
             catch (Exception e)
             {
                 LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server 意外终止");
+                Thread.Sleep(cfg.Msa.Heartbeat);
+                Connect();
             }
         }
 
@@ -98,16 +106,22 @@ namespace OPCDA2MSA.opc
             {
                 try
                 {
-                    ItemValueResult[] values = server.Read(filterItems.ToArray());
-                    if (values != null && values.Length > 0)
+                    if (filterItems.Count > 0)
                     {
-                        msaTcp.Send(values);
+                        ItemValueResult[] values = server.Read(filterItems.ToArray());
+                        if (values != null && values.Length > 0)
+                        {
+                            msaTcp.Send(values);
+                        }
+                    }
+                    else {
+                        LoggerUtil.log.Warning("Opc.Da.Server Read filterItems: {@filterItems}", filterItems);
                     }
                 }
                 catch (Exception ex)
                 {
                     LoggerUtil.log.Fatal(ex, "Opc.Da.Server.Read 意外终止");
-      
+                    Connect();
                 }
                 Thread.Sleep(cfg.Msa.Interval);
             }
@@ -151,7 +165,7 @@ namespace OPCDA2MSA.opc
 
             //                    //byte[] bytes = ConvertUtil.getByte(values[i].Value);
             //                    //Console.WriteLine($@"{BitConverter.ToString(bytes)}@{bytes.Length}");
-                    
+
             //                    //if (bytes.Length > 2) { 
             //                    //    modbusTcp.Store.HoldingRegisters[index+1] = BitConverter.ToUInt16(bytes, 2);
             //                    //}
@@ -228,7 +242,8 @@ namespace OPCDA2MSA.opc
         }
 
         // 对全量Item过滤，只保留配置项中需要的Item
-        private void SetFilterItems() {
+        private void SetFilterItems()
+        {
             var regs = cfg.Registers;
             if (regs != null && regs.Count > 0)
             {

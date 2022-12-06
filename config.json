@@ -1,10 +1,10 @@
 {
   "autoStart": true,
   "opcda": {
-    "host": "192.168.147.129",
+    "host": "192.168.0.16",
     "node": "Matrikon.OPC.Simulation.1",
-    "username": "Administrator",
-    "password": "123456"
+    "username": "PT",
+    "password": "abon8888"
   },
   "msa": {
     "mn": 100000000,

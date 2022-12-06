@@ -102,7 +102,7 @@ namespace OPCDA2MSA.opc
             }
             catch (Exception e)
             {
-                LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server 意外终止");
+                LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server["+ host + "] 意外终止");
                 Thread.Sleep(cfg.Msa.Heartbeat);
                 Connect();
             }

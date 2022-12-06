@@ -3,8 +3,8 @@
   "opcda": {
     "host": "192.168.0.16",
     "node": "Matrikon.OPC.Simulation.1",
-    "username": "PT",
-    "password": "abon8888"
+    "username": "Administrator",
+    "password": "123456"
   },
   "msa": {
     "mn": 100000000,

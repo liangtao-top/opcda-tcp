@@ -1,7 +1,7 @@
 {
   "autoStart": true,
   "opcda": {
-    "host": "192.168.0.16",
+    "host": "192.168.0.208",
     "node": "Matrikon.OPC.Simulation.1",
     "username": "Administrator",
     "password": "123456"

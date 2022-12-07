@@ -151,7 +151,6 @@
     <Content Include="config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <None Include="doc\远程连OPC DA LINUX 的DCOM配置.pdf" />
     <None Include="LICENSE" />
     <None Include="OpcDAToMSA_TemporaryKey.pfx" />
     <None Include="packages.config" />
@@ -192,6 +191,8 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="doc\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

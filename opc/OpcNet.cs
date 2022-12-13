@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
+using System.Xml.Linq;
 
 namespace OPCDA2MSA.opc
 {
@@ -91,7 +92,7 @@ namespace OPCDA2MSA.opc
                 {
                     itemsNames[i] = items[i].ItemName;
                 }
-                LoggerUtil.log.Debug("Opc.Da.Server Read Items: {@itemsNames}", itemsNames);
+                LoggerUtil.log.Debug("Opc.Da.Server Read Items: {@itemsNames}, Length: {@Length}", itemsNames, itemsNames.Length);
                 SetFilterItems();
                 string[] filterItemsNames = new string[filterItems.Count];
                 for (int i = 0; i < filterItems.Count; i++)
@@ -269,7 +270,9 @@ namespace OPCDA2MSA.opc
         // 获取服务器上全部Item
         private void SetItems()
         {
+            LoggerUtil.log.Debug("Server: {@server}", server);
             TreeNode node = new TreeNode(server.Name);
+            LoggerUtil.log.Debug("RootNode: {@node}", node);
             BrowseAddress(node, null);//浏览根节点所包括的子项BrowseElement。过程Browse下文列出。
         }
 
@@ -283,16 +286,44 @@ namespace OPCDA2MSA.opc
                 if (node.Tag != null && node.Tag.GetType() == typeof(BrowseElement))
                 {//该节点是BrowseElement对象，而不是根节点。
                     parent = (BrowseElement)node.Tag;
-                    itemID = new ItemIdentifier(parent.ItemPath, parent.ItemName);
+                    //LoggerUtil.log.Debug("parent.ItemPath: {@Name}, parent.ItemName: {@ItemName}", parent.ItemPath, parent.ItemName);
+                    //itemID = new ItemIdentifier(parent.ItemPath, parent.ItemName);
+
+                    //LoggerUtil.log.Debug("parent.Name: {@Name},parent.ItemPath: {@ItemPath}, parent.ItemName: {@ItemName}", parent.Name, parent.ItemPath, parent.ItemName);
+                    string TempName = parent.Name;
+                    if (!string.IsNullOrEmpty(parent.ItemPath))
+                    {
+                        TempName = parent.ItemPath;
+                    }
+                    itemID = new ItemIdentifier(parent.ItemPath, TempName);
                 }
+                //if (parent != null)
+                //{
+                //    LoggerUtil.log.Debug("parent.Name: {@Name},parent.ItemPath: {@ItemPath}, parent.ItemName: {@ItemName}", parent.Name, parent.ItemPath, parent.ItemName);
+                //    string TempName = parent.Name;
+                //    if (!string.IsNullOrEmpty(parent.ItemPath)) {
+                //        TempName = parent.ItemPath;
+                //    }
+                //    itemID = new ItemIdentifier(parent.ItemPath, TempName);
+                //}
+
                 BrowsePosition position = null;//地址空间巨大，则需要此使用此对象，一般不用。
                 BrowseElement[] elements = server.Browse(itemID, filters, out position);
                 if (elements != null)
                 {//浏览到服务器m_server对应itemID所包含的元素。
                     foreach (BrowseElement element in elements)
                     {
-                        if (element.IsItem == true)
+                        //LoggerUtil.log.Debug("element.Name: {@Name},element.ItemName: {@ItemName},element.IsItem: {@IsItem},element.HasChildren: {@HasChildren}", element.Name, element.ItemName, element.IsItem, element.HasChildren);
+
+                        if (!element.IsItem && element.HasChildren)
                         {
+                            TreeNode newnode = AddBrowseElement(node, element);//加入到TreeView
+                            //LoggerUtil.log.Debug("TreeNode: {@newnode}", newnode);
+                            BrowseAddress(newnode, element);//递归调用
+                        }
+                        else if (element.IsItem == true)
+                        {
+                            //LoggerUtil.log.Debug("BrowseElement: {@element}", element);
                             items.Add(new Item
                             {
                                 ClientHandle = Guid.NewGuid().ToString(),//客户端给该数据项分配的句柄。
@@ -300,8 +331,8 @@ namespace OPCDA2MSA.opc
                                 ItemName = element.ItemName //该数据项在服务器中的名字。
                             });
                         }
-                        TreeNode newnode = AddBrowseElement(node, element);//加入到TreeView
-                        BrowseAddress(newnode, element);//递归调用
+
+
                     }
                 }
             }

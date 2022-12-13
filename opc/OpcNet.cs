@@ -99,7 +99,7 @@ namespace OPCDA2MSA.opc
                 {
                     filterItemsNames[i] = filterItems[i].ItemName;
                 }
-                LoggerUtil.log.Information("Opc.Da.Server Filter Items: {@filterItemsNames}", filterItemsNames);
+                LoggerUtil.log.Information("Opc.Da.Server Filter Items: {@filterItemsNames}, Length: {@Length}", filterItemsNames, filterItemsNames.Length);
             }
             catch (Exception e)
             {

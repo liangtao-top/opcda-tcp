@@ -86,6 +86,8 @@ namespace OPCDA2MSA.opc
                 server.Connect(url, new ConnectData(new System.Net.NetworkCredential(cfg.Opcda.Username, cfg.Opcda.Password)));
                 //server.Connect();
                 LoggerUtil.log.Information($@"Opc Server {host} {node} is connected");
+                items = new List<Item>();
+                filterItems = new List<Item>();
                 SetItems();
                 string[] itemsNames = new string[items.Count];
                 for (int i = 0; i < items.Count; i++)

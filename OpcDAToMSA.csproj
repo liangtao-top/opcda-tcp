@@ -151,6 +151,7 @@
     <Content Include="config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="docs\HOLLiAS iComm.chm" />
     <None Include="LICENSE" />
     <None Include="OpcDAToMSA_TemporaryKey.pfx" />
     <None Include="packages.config" />
@@ -191,9 +192,7 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="docs\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>
     <VisualStudio>

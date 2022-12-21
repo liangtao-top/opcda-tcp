@@ -1,10 +1,10 @@
 {
   "autoStart": true,
   "opcda": {
-    "host": "192.168.0.208",
-    "node": "Matrikon.OPC.Simulation.1",
-    "username": "LTHINK",
-    "password": "zxcv@123"
+    "host": "192.168.1.200",
+    "node": "GTSoft.Shell.1",
+    "username": "Administrator",
+    "password": "123456"
   },
   "msa": {
     "mn": 100000000,
@@ -21,9 +21,9 @@
     }
   },
   "registers": {
-    "A.02GA_0729": "511110066004Q0003QT001",
-    "A.02GA_0730": "511110066004Q0004QT001",
-    "A.02PIA_0703B": "511110066004G0002YL001"
+    "OPC的模拟量serveNAOH.02LIA_0701A": "511110066004Q0003QT001",
+    "OPC的模拟量serverHCN.LIC033201": "511110066004Q0004QT001",
+    "OPC的模拟量serverHCN.LI03102": "511110066004G0002YL001"
   },
   "logger": {
     "level": "debug",

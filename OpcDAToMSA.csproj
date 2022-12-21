@@ -195,4 +195,9 @@
     <Folder Include="docs\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties config_1json__JsonSchema="https://json.schemastore.org/datalogic-scan2deploy-android.json" />
+    </VisualStudio>
+  </ProjectExtensions>
 </Project>

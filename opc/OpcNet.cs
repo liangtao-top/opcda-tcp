@@ -50,7 +50,7 @@ namespace OPCDA2MSA.opc
             try
             {
                 Opc.Server[] servers = discovery.GetAvailableServers(Specification.COM_DA_20);
-                LoggerUtil.log.Debug("GetAvailableServers {@servers}", servers);
+                LoggerUtil.log.Debug("GetAvailableServers {@servers}, Length: {@Length}", servers.Length);
                 if (servers != null && servers.Length > 0)
                 {
                     for (int i = 0; i < servers.Length; i++)

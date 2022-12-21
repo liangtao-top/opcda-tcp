@@ -28,6 +28,5 @@
   "logger": {
     "level": "debug",
     "file": "logs/log.txt"
-
   }
 }

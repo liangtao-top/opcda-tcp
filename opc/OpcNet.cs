@@ -17,9 +17,9 @@ namespace OPCDA2MSA.opc
 
         private Opc.Da.Server server = null;
 
-        public List<Item> items = new List<Item>();
+        public List<Item> items = null;
 
-        public List<Item> filterItems = new List<Item>();
+        public List<Item> filterItems = null;
 
         private readonly CfgJson cfg = Config.GetConfig();
 

@@ -10,6 +10,7 @@ using OPCDA2MSA.opc;
 using OPCDA2MSA;
 using System.Security.Cryptography;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrackBar;
+using System.Linq;
 
 namespace OpcDAToMSA
 {
@@ -70,9 +71,6 @@ namespace OpcDAToMSA
             }
         }
 
-        //委托
-        protected delegate void ShowContentDelegate(string content);
-
         private void LoggerListen()
         {
             HttpListener listener = new HttpListener();
@@ -98,7 +96,7 @@ namespace OpcDAToMSA
                     Stream stream = ctx.Request.InputStream;
                     StreamReader reader = new StreamReader(stream, Encoding.UTF8);
                     string content = reader.ReadToEnd();
-                    Console.WriteLine(content);
+                    //Console.WriteLine(content);
                     //Console.WriteLine(ctx.Request.Url.AbsolutePath.ToString());
                     if (ctx.Request.Url.AbsolutePath.ToString() == "/ui-events")
                     {
@@ -111,7 +109,8 @@ namespace OpcDAToMSA
                         foreach (var logEvent in body)
                         {
                             ShowContent($"{logEvent.Timestamp.ToLocalTime()} [{logEvent.Level}] {logEvent.RenderedMessage}");
-                            if (!string.IsNullOrEmpty(logEvent.Exception)) {
+                            if (!string.IsNullOrEmpty(logEvent.Exception))
+                            {
                                 ShowContent(logEvent.Exception);
                             }
                         }
@@ -121,6 +120,21 @@ namespace OpcDAToMSA
                 }
             }
         }
+
+        //委托
+        protected delegate void ShowContentDelegate(string content);
+
+        private void ShowContent(string content)
+        {
+            int maxLine = 3;//最大显示行数
+            int curLine = this.textBoxDescription.Lines.Length;
+            if (curLine > maxLine)
+            {
+                this.textBoxDescription.Lines = this.textBoxDescription.Lines.Skip(curLine - maxLine).Take(maxLine).ToArray();
+            }
+            this.textBoxDescription.AppendText(content + "\r\n");
+        }
+
         private void UpdateUI(UiEvent content)
         {
             if (content.Event == "MSA")
@@ -131,11 +145,6 @@ namespace OpcDAToMSA
             {
                 this.label4.Text = content.Data.ToString();
             }
-        }
-
-        private void ShowContent(string content)
-        {
-            this.textBoxDescription.AppendText(content + "\r\n");
         }
 
         #region   拦截Windows消息

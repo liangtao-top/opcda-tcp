@@ -1,11 +1,6 @@
 ﻿using OpcDAToMSA.utils;
 using System;
 using System.Windows.Forms;
-using System.ServiceProcess;//用来控制服务的启动和停止
-using System.Timers;
-using System.Threading;
-using OpcDAToMSA.Properties;
-using System.Runtime.InteropServices;
 using OPCDA2MSA;
 using Microsoft.Win32;
 
@@ -56,7 +51,7 @@ namespace OpcDAToMSA
             }
             catch (Exception e)
             {
-                LoggerUtil.log.Fatal(e, "您需要管理员权限修改");
+                LoggerUtil.log.Fatal(e, "开机自启，您需要管理员权限运行");
             }
         }
 

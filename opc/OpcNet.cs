@@ -4,9 +4,10 @@ using OpcDAToMSA.modbus;
 using OpcDAToMSA.utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using System.Xml.Linq;
 
 namespace OPCDA2MSA.opc
 {
@@ -36,6 +37,10 @@ namespace OPCDA2MSA.opc
         //private readonly ModbusTcp modbusTcp = new ModbusTcp();
 
         private readonly MsaTcp msaTcp = new MsaTcp();
+
+        private bool runing = true;
+
+        private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
 
         public OpcNet()
         {
@@ -75,6 +80,10 @@ namespace OPCDA2MSA.opc
         // 连接远程OPC服务器
         public void Connect()
         {
+            this.runing = true;
+            this.items = new List<Item>();
+            this.filterItems = new List<Item>();
+
             string host = cfg.Opcda.Host;
             string node = cfg.Opcda.Node;
 
@@ -86,8 +95,7 @@ namespace OPCDA2MSA.opc
                 server.Connect(url, new ConnectData(new System.Net.NetworkCredential(cfg.Opcda.Username, cfg.Opcda.Password)));
                 //server.Connect();
                 LoggerUtil.log.Information($@"Opc Server {host} {node} is connected");
-                items = new List<Item>();
-                filterItems = new List<Item>();
+                _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"运行\"}")));
                 SetItems();
                 string[] itemsNames = new string[items.Count];
                 for (int i = 0; i < items.Count; i++)
@@ -105,15 +113,25 @@ namespace OPCDA2MSA.opc
             }
             catch (Exception e)
             {
-                LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server["+ host + "] 意外终止");
-                Thread.Sleep(cfg.Msa.Heartbeat);
-                Connect();
+                LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server[" + host + "] 意外终止");
+                if (runing)
+                {
+                    Thread.Sleep(cfg.Msa.Heartbeat);
+                    Connect();
+                }
             }
+        }
+        public void Stop()
+        {
+            this.runing = false;
+            msaTcp.Stop();
+            LoggerUtil.log.Information($@"Opc Server {cfg.Opcda.Host} {cfg.Opcda.Node} is stop");
+            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"停止\"}")));
         }
 
         public void MsaTcp()
         {
-            while (true)
+            while (runing)
             {
                 try
                 {

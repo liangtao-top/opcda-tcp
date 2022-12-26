@@ -1,5 +1,5 @@
 {
-  "autoStart": true,
+  "autoStart": false,
   "opcda": {
     "host": "192.168.1.200",
     "node": "GTSoft.Shell.1",

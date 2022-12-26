@@ -1,10 +1,13 @@
-﻿using Microsoft.Win32;
-using OPCDA2MSA;
-using OPCDA2MSA.opc;
-using OpcDAToMSA.utils;
+﻿using OpcDAToMSA.utils;
 using System;
 using System.Windows.Forms;
-
+using System.ServiceProcess;//用来控制服务的启动和停止
+using System.Timers;
+using System.Threading;
+using OpcDAToMSA.Properties;
+using System.Runtime.InteropServices;
+using OPCDA2MSA;
+using Microsoft.Win32;
 
 namespace OpcDAToMSA
 {
@@ -18,23 +21,16 @@ namespace OpcDAToMSA
         [STAThread]
         static void Main()
         {
-
-            //Application.EnableVisualStyles();
-            //Application.SetCompatibleTextRenderingDefault(false);
-            //Application.Run(new Form1());
-
             LoggerUtil.log.Information("Welcome OpcDaToMSA V2022.12.02");
             LoggerUtil.Configuration(Config.GetConfig().Logger);
-
             AutoStart(Config.GetConfig().AutoStart);
-
-            OpcNet client = new OpcNet();
-            client.Connect();
-            client.MsaTcp();
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false); 
+            Application.Run(new Form1());
         }
 
         /// <summary>
-        /// 修改程序在注册表中的键值
+        /// 修改程序在注册表中的键值，实现开机自启
         /// </summary>
         /// <param name="isAuto">true:开机启动,false:不开机自启</param>
         static void AutoStart(bool isAuto)
@@ -63,5 +59,6 @@ namespace OpcDAToMSA
                 LoggerUtil.log.Fatal(e, "您需要管理员权限修改");
             }
         }
+
     }
 }

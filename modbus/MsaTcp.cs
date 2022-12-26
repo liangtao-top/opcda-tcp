@@ -10,6 +10,7 @@ using OPCDA2MSA;
 using Opc.Da;
 using Newtonsoft.Json;
 using OpcDAToMSA.utils;
+using System.IO;
 
 namespace OpcDAToMSA.modbus
 {
@@ -20,9 +21,14 @@ namespace OpcDAToMSA.modbus
         private readonly CfgJson cfg = Config.GetConfig();
 
         private uint uid = 0;
+         
+        private bool runing = true;
+
+        private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
 
         public void Run()
         {
+            this.runing = true;
             tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             EndPoint ep = new IPEndPoint(IPAddress.Parse(cfg.Msa.Ip), cfg.Msa.Port);
             try
@@ -31,9 +37,10 @@ namespace OpcDAToMSA.modbus
                 //连接Socket
                 tcpClient.Connect(ep);
                 LoggerUtil.log.Information($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is connected");
+                _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"运行\"}")));
                 Task.Run(new Action(() =>
                 {
-                    while (true)
+                    while (runing)
                     {
                         try
                         {
@@ -49,7 +56,7 @@ namespace OpcDAToMSA.modbus
                 }));
                 Task.Run(new Action(() =>
                 {
-                    while (true)
+                    while (runing)
                     {
                         byte[] buffer = new byte[1024 * 10];
                         try
@@ -76,6 +83,12 @@ namespace OpcDAToMSA.modbus
                 Thread.Sleep(cfg.Msa.Heartbeat);
                 Run();
             }
+        }
+
+        public void Stop() { 
+            this.runing= false;
+            LoggerUtil.log.Information($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is stop");
+            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"停止\"}")));
         }
 
         //接收数据

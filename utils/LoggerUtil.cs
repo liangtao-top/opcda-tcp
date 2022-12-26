@@ -1,18 +1,27 @@
 ﻿using Serilog.Core;
 using Serilog;
 using OPCDA2MSA;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 
 namespace OpcDAToMSA.utils
 {
     internal class LoggerUtil
     {
 
+        public static IConfigurationRoot configuration = new ConfigurationBuilder().AddInMemoryCollection(new[]{ new KeyValuePair<string, string>("apiKey", "secret-api-key")}).Build();
+
         // 默认日志配置
         public static Logger log = new LoggerConfiguration()
-       .MinimumLevel.Verbose()
-       .WriteTo.Console()
-       .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
-       .CreateLogger();
+        .MinimumLevel.Verbose()
+        .WriteTo.Console()
+        .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
+        .WriteTo.Http(
+                    requestUri: "http://localhost:31137/log-events",
+                    queueLimitBytes: null,
+                    httpClient: new CustomHttpClient(),
+                    configuration: configuration)
+        .CreateLogger();
 
         public static void Configuration(LoggerJson conf)
         {
@@ -34,7 +43,7 @@ namespace OpcDAToMSA.utils
                 case "fatal":
                     loggerConfiguration.MinimumLevel.Fatal();
                     break;
-               default:
+                default:
                     loggerConfiguration.MinimumLevel.Verbose();
                     break;
             }
@@ -43,8 +52,16 @@ namespace OpcDAToMSA.utils
             {
                 loggerConfiguration.WriteTo.File(conf.File, rollingInterval: RollingInterval.Day);
             }
+
+            loggerConfiguration.WriteTo.Http(
+                    requestUri: "http://localhost:31137/log-events",
+                    queueLimitBytes: null,
+                    httpClient: new CustomHttpClient(),
+                    configuration: configuration);
+
             LoggerUtil.log = loggerConfiguration.CreateLogger();
         }
 
     }
+
 }

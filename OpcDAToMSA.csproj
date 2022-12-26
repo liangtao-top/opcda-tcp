@@ -203,7 +203,7 @@
     </Compile>
     <Compile Include="modbus\ModbusTcp.cs" />
     <Compile Include="modbus\MsaTcp.cs" />
-    <Compile Include="opc\OpcNet.cs" />
+    <Compile Include="modbus\OpcNet.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="utils\ConvertUtil.cs" />

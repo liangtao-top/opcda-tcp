@@ -29,6 +29,7 @@ namespace OpcDAToMSA.modbus
         public void Run()
         {
             this.runing = true;
+            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"连接\"}")));
             tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             EndPoint ep = new IPEndPoint(IPAddress.Parse(cfg.Msa.Ip), cfg.Msa.Port);
             try

@@ -87,7 +87,7 @@ namespace OPCDA2MSA.opc
             string host = cfg.Opcda.Host;
             string node = cfg.Opcda.Node;
 
-            //Opc.URL url = new Opc.URL("opcda://localhost/BECKHOFF.TwinCATOpcServerDA");
+            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"连接\"}")));
             URL url = new URL($@"opcda://{host}/{node}");
             server = new Opc.Da.Server(fact, url);
             try

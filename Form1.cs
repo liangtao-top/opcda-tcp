@@ -8,6 +8,8 @@ using OpcDAToMSA.utils;
 using Newtonsoft.Json;
 using OPCDA2MSA.opc;
 using OPCDA2MSA;
+using System.Security.Cryptography;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrackBar;
 
 namespace OpcDAToMSA
 {
@@ -108,7 +110,7 @@ namespace OpcDAToMSA
                         LogEvent[] body = JsonConvert.DeserializeObject<LogEvent[]>(content);
                         foreach (var logEvent in body)
                         {
-                            ShowContent($"{logEvent.Timestamp} [{logEvent.Level}] {logEvent.RenderedMessage}");
+                            ShowContent($"{logEvent.Timestamp.ToLocalTime()} [{logEvent.Level}] {logEvent.RenderedMessage}");
                             if (!string.IsNullOrEmpty(logEvent.Exception)) {
                                 ShowContent(logEvent.Exception);
                             }

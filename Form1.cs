@@ -83,7 +83,8 @@ namespace OpcDAToMSA
             catch (Exception e)
             {
                 LoggerUtil.log.Fatal(e, "日志监听服务意外终止");
-                return;
+                DialogResult dialogResult = MessageBox.Show(e.Message, "日志监听服务", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                throw;
             }
             LoggerUtil.log.Information($"Logger Server Listening At http://127.0.0.1:31137");
             while (true)
@@ -126,7 +127,7 @@ namespace OpcDAToMSA
 
         private void ShowContent(string content)
         {
-            int maxLine = 3;//最大显示行数
+            int maxLine = 300;//最大显示行数
             int curLine = this.textBoxDescription.Lines.Length;
             if (curLine > maxLine)
             {

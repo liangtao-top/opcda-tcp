@@ -15,6 +15,7 @@ using OpcDAToMSA.Properties;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using static System.Windows.Forms.AxHost;
+using System.Reflection.Emit;
 
 namespace OpcDAToMSA
 {
@@ -134,7 +135,7 @@ namespace OpcDAToMSA
 
         private void ShowContent(string content)
         {
-            int maxLine = 300;//最大显示行数
+            int maxLine = 1500;//最大显示行数
             int curLine = this.textBoxDescription.Lines.Length;
             if (curLine > maxLine)
             {
@@ -250,6 +251,19 @@ namespace OpcDAToMSA
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+        }
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            LoggerUtil.log.Debug(e.KeyCode.ToString());
+            switch (e.KeyCode)
+            {
+                case Keys.F9:
+                    this.startButton_Click(sender, e);
+                    break;
+                case Keys.F10:
+                    this.stopButton_Click(sender, e);
+                    break;
+            }
         }
     }
 

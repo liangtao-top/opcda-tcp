@@ -11,13 +11,16 @@ using OPCDA2MSA;
 using System.Security.Cryptography;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrackBar;
 using System.Linq;
+using OpcDAToMSA.Properties;
+using System.Drawing;
+using System.Runtime.InteropServices;
 
 namespace OpcDAToMSA
 {
     public partial class Form1 : Form
     {
-        private MenuItem startMenuItem;
-        private MenuItem stopMenuItem;
+        private ToolStripMenuItem startMenuItem;
+        private ToolStripMenuItem stopMenuItem;
         public Form1()
         {
 
@@ -26,33 +29,35 @@ namespace OpcDAToMSA
             //加载时 取消跨线程检查
             Control.CheckForIllegalCrossThreadCalls = false;
 
-            var cm = new ContextMenu();
+            var cm = new ContextMenuStrip();
 
-            startMenuItem = new MenuItem("启动", new EventHandler(delegate (object sender, EventArgs e)
+            startMenuItem = new ToolStripMenuItem("启动", Resources.qidong, new EventHandler(delegate (object sender, EventArgs e)
             {
                 this.startButton_Click(sender, e);
-            }));
-            stopMenuItem = new MenuItem("停止", new EventHandler(delegate (object sender, EventArgs e)
+            }), Keys.F9);
+            stopMenuItem = new ToolStripMenuItem("停止", Resources.tingzhi, new EventHandler(delegate (object sender, EventArgs e)
             {
                 this.stopButton_Click(sender, e);
-            }));
-            cm.MenuItems.Add(startMenuItem);
-            cm.MenuItems.Add(stopMenuItem);
-            cm.MenuItems.Add("-");
-            cm.MenuItems.Add(new MenuItem("关于", new EventHandler(delegate (object sender, EventArgs e)
+            }), Keys.F10);
+            cm.Items.Add(startMenuItem);
+            cm.Items.Add(stopMenuItem);
+            cm.Items.Add(new ToolStripSeparator());
+            cm.Items.Add(new ToolStripMenuItem("关于", Resources.about, new EventHandler(delegate (object sender, EventArgs e)
             {
                 AboutBox1 aboutBox = new AboutBox1();
                 aboutBox.Show();
-            })));
-            cm.MenuItems.Add(new MenuItem("退出", new EventHandler(delegate (object sender, EventArgs e)
+            }), Keys.F11));
+            cm.Items.Add(new ToolStripMenuItem("退出", Resources.tuichu, new EventHandler(delegate (object sender, EventArgs e)
             {
+                this.notifyIcon1.Icon.Dispose();
                 this.notifyIcon1.Dispose();
                 this.Dispose(true);
+                Application.Exit();
                 //强制结束进程并退出
                 System.Diagnostics.Process.GetCurrentProcess().Kill();
                 Environment.Exit(0);
-            })));
-            this.notifyIcon1.ContextMenu = cm;
+            }), Keys.F12));
+            this.notifyIcon1.ContextMenuStrip = cm;
         }
 
         private void Form1_Activated(object sender, EventArgs e)
@@ -62,8 +67,6 @@ namespace OpcDAToMSA
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            w = this.Width;
-            h = this.Height;
             (new Thread(new ThreadStart(LoggerListen))).Start();
             if (Config.GetConfig().AutoStart)
             {
@@ -71,6 +74,7 @@ namespace OpcDAToMSA
             }
         }
 
+        #region   日志监听服务
         private void LoggerListen()
         {
             HttpListener listener = new HttpListener();
@@ -147,12 +151,14 @@ namespace OpcDAToMSA
                 this.label4.Text = content.Data.ToString();
             }
         }
+        #endregion
 
         #region   拦截Windows消息
         protected override void WndProc(ref Message m)
         {
             const int WM_SYSCOMMAND = 0x0112;
             const int SC_CLOSE = 0xF060;
+            //const int WM_DESTROY = 0x0002;
             if (m.Msg == WM_SYSCOMMAND && (int)m.WParam == SC_CLOSE)
             {
                 //捕捉关闭窗体消息      
@@ -162,8 +168,9 @@ namespace OpcDAToMSA
             }
             base.WndProc(ref m);
         }
-        #endregion  
+        #endregion
 
+        #region   TextBox控件跟随窗口变化自动缩放
         private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             if (this.WindowState == FormWindowState.Minimized)
@@ -173,23 +180,35 @@ namespace OpcDAToMSA
             this.Show();
             this.Activate();
         }
-
-        #region 控件大小随窗体大小等比例缩放
-        private float w;//定义当前窗体的宽度
-        private float h;//定义当前窗体的高度
-
-        private void setControls(float newx, float newy, Control cons)
-        {
-
-        }
-
         private void Form1_Resize(object sender, EventArgs e)
         {
-            float newx = (this.Width) / w;
-            float newy = (this.Height) / h;
-            setControls(newx, newy, this);
+            //var scale = GetScreenScalingFactor();
+            //LoggerUtil.log.Debug("Width: {@Width}, Height: {@Height}, scale: {@scale}", this.ClientSize.Width, this.ClientSize.Height, scale);
+            if (this.ClientSize.Width > 0 && this.ClientSize.Height > 0 && this.ClientSize.Height != 300)
+            {
+                this.textBoxDescription.Size = new Size(this.ClientSize.Width, this.ClientSize.Height - 40);
+            }
         }
 
+        //[DllImport("gdi32.dll", EntryPoint = "GetDeviceCaps", SetLastError = true)]
+        //public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+        //enum DeviceCap
+        //{
+        //    VERTRES = 10,
+        //    PHYSICALWIDTH = 110,
+        //    SCALINGFACTORX = 114,
+        //    DESKTOPVERTRES = 117,
+
+        //    // http://pinvoke.net/default.aspx/gdi32/GetDeviceCaps.html
+        //}
+        //private static double GetScreenScalingFactor()
+        //{
+        //    var g = Graphics.FromHwnd(IntPtr.Zero);
+        //    IntPtr desktop = g.GetHdc();
+        //    var physicalScreenHeight = GetDeviceCaps(desktop, (int)DeviceCap.DESKTOPVERTRES);
+        //    var screenScalingFactor = (double)physicalScreenHeight / Screen.PrimaryScreen.Bounds.Height;
+        //    return screenScalingFactor;
+        //}
         #endregion
 
         private OpcNet opcNet;
@@ -216,6 +235,14 @@ namespace OpcDAToMSA
             stopMenuItem.Enabled = false;
             button1.Enabled = true;
             startMenuItem.Enabled = true;
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
         }
     }
 

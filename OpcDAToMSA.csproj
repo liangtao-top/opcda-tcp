@@ -209,6 +209,10 @@
     <Compile Include="utils\ConvertUtil.cs" />
     <Compile Include="utils\HttpClientUtil.cs" />
     <Compile Include="utils\LoggerUtil.cs" />
+    <None Include="Resources\tuichu.png" />
+    <None Include="Resources\tingzhi.png" />
+    <None Include="Resources\qidong.png" />
+    <None Include="Resources\about.png" />
     <EmbeddedResource Include="AboutBox1.resx">
       <DependentUpon>AboutBox1.cs</DependentUpon>
     </EmbeddedResource>
@@ -216,7 +220,7 @@
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
+      <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -271,9 +275,7 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Resources\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>
     <VisualStudio>

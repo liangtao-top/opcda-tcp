@@ -14,6 +14,7 @@ using System.Linq;
 using OpcDAToMSA.Properties;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using static System.Windows.Forms.AxHost;
 
 namespace OpcDAToMSA
 {
@@ -67,6 +68,8 @@ namespace OpcDAToMSA
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            this.Form1_ClientHeight = this.ClientSize.Height;
+            //LoggerUtil.log.Debug("Form1_Load Form1_ClientHeight: {@Form1_ClientHeight}", this.Form1_ClientHeight);
             (new Thread(new ThreadStart(LoggerListen))).Start();
             if (Config.GetConfig().AutoStart)
             {
@@ -180,35 +183,39 @@ namespace OpcDAToMSA
             this.Show();
             this.Activate();
         }
+
+        private float Form1_ClientHeight;
+
         private void Form1_Resize(object sender, EventArgs e)
         {
-            //var scale = GetScreenScalingFactor();
-            //LoggerUtil.log.Debug("Width: {@Width}, Height: {@Height}, scale: {@scale}", this.ClientSize.Width, this.ClientSize.Height, scale);
-            if (this.ClientSize.Width > 0 && this.ClientSize.Height > 0 && this.ClientSize.Height != 300)
+            //LoggerUtil.log.Debug("Form1_Resize Form1_ClientHeight: {@Form1_ClientHeight}", this.Form1_ClientHeight);
+            var scale = GetScreenScalingFactor();
+            //LoggerUtil.log.Debug("Height: {@Height}|{@Height}, {@b}, scale: {@scale}", this.Form1_ClientHeight, this.ClientSize.Height, this.Form1_ClientHeight.Equals(this.ClientSize.Height), scale);
+            if (Form1_ClientHeight > 0 )
             {
-                this.textBoxDescription.Size = new Size(this.ClientSize.Width, this.ClientSize.Height - 40);
+                this.textBoxDescription.Size = new Size(this.ClientSize.Width, (int)(this.ClientSize.Height - (60 / scale)));
             }
         }
 
-        //[DllImport("gdi32.dll", EntryPoint = "GetDeviceCaps", SetLastError = true)]
-        //public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
-        //enum DeviceCap
-        //{
-        //    VERTRES = 10,
-        //    PHYSICALWIDTH = 110,
-        //    SCALINGFACTORX = 114,
-        //    DESKTOPVERTRES = 117,
+        [DllImport("gdi32.dll", EntryPoint = "GetDeviceCaps", SetLastError = true)]
+        public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+        enum DeviceCap
+        {
+            VERTRES = 10,
+            PHYSICALWIDTH = 110,
+            SCALINGFACTORX = 114,
+            DESKTOPVERTRES = 117,
 
-        //    // http://pinvoke.net/default.aspx/gdi32/GetDeviceCaps.html
-        //}
-        //private static double GetScreenScalingFactor()
-        //{
-        //    var g = Graphics.FromHwnd(IntPtr.Zero);
-        //    IntPtr desktop = g.GetHdc();
-        //    var physicalScreenHeight = GetDeviceCaps(desktop, (int)DeviceCap.DESKTOPVERTRES);
-        //    var screenScalingFactor = (double)physicalScreenHeight / Screen.PrimaryScreen.Bounds.Height;
-        //    return screenScalingFactor;
-        //}
+            // http://pinvoke.net/default.aspx/gdi32/GetDeviceCaps.html
+        }
+        private static double GetScreenScalingFactor()
+        {
+            var g = Graphics.FromHwnd(IntPtr.Zero);
+            IntPtr desktop = g.GetHdc();
+            var physicalScreenHeight = GetDeviceCaps(desktop, (int)DeviceCap.DESKTOPVERTRES);
+            var screenScalingFactor = (double)physicalScreenHeight / Screen.PrimaryScreen.Bounds.Height;
+            return screenScalingFactor;
+        }
         #endregion
 
         private OpcNet opcNet;

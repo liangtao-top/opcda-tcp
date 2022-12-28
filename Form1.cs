@@ -8,14 +8,10 @@ using OpcDAToMSA.utils;
 using Newtonsoft.Json;
 using OPCDA2MSA.opc;
 using OPCDA2MSA;
-using System.Security.Cryptography;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrackBar;
 using System.Linq;
 using OpcDAToMSA.Properties;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using static System.Windows.Forms.AxHost;
-using System.Reflection.Emit;
 
 namespace OpcDAToMSA
 {

@@ -254,7 +254,7 @@ namespace OpcDAToMSA
         }
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
-            LoggerUtil.log.Debug(e.KeyCode.ToString());
+            //LoggerUtil.log.Debug(e.KeyCode.ToString());
             switch (e.KeyCode)
             {
                 case Keys.F9:

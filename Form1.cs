@@ -265,6 +265,7 @@ namespace OpcDAToMSA
                     break;
             }
         }
+
     }
 
     public class LogEvent

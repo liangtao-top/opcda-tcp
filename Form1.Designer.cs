@@ -96,8 +96,10 @@ namespace OpcDAToMSA
             // 
             // textBoxDescription
             // 
+            this.textBoxDescription.BackColor = System.Drawing.SystemColors.Control;
             this.textBoxDescription.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.textBoxDescription.Dock = System.Windows.Forms.DockStyle.Top;
+            this.textBoxDescription.ForeColor = System.Drawing.SystemColors.ControlText;
             this.textBoxDescription.Location = new System.Drawing.Point(0, 0);
             this.textBoxDescription.Margin = new System.Windows.Forms.Padding(8);
             this.textBoxDescription.Multiline = true;

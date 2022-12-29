@@ -145,7 +145,7 @@ namespace OPCDA2MSA.opc
                     }
                     else
                     {
-                        LoggerUtil.log.Warning("Opc.Da.Server Read filterItems: {@filterItems}", filterItems);
+                        LoggerUtil.log.Warning("Opc.Da.Server Read filterItems: {@filterItems}, Length: {@Length}", filterItems, filterItems.Count);
                     }
                 }
                 catch (Exception ex)

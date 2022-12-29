@@ -167,7 +167,7 @@ namespace OpcDAToMSA.modbus
                 serid = cfg.Msa.Mn,
                 body = frameFormat
             };
-            LoggerUtil.log.Information("Escalation: \n{@msa}", JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.Indented }));
+            LoggerUtil.log.Information("Escalation: \r\n" + JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.Indented }));
             return Packet(msa);
         }
 

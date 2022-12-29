@@ -1,8 +1,8 @@
 {
   "autoStart": false,
   "opcda": {
-    "host": "192.168.1.200",
-    "node": "GTSoft.Shell.1",
+    "host": "192.168.0.200",
+    "node": "Matrikon.OPC.Simulation.1",
     "username": "Administrator",
     "password": "123456"
   },

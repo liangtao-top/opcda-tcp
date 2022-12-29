@@ -96,7 +96,7 @@ namespace OpcDAToMSA.modbus
         private void Receive(byte[] bytes)
         {
             Msa<FrameFormat1> msa = Unpack<FrameFormat1>(bytes);
-            LoggerUtil.log.Debug("Receive: {@msa}", JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.None, NullValueHandling = NullValueHandling.Ignore }));
+            LoggerUtil.log.Debug("Receive: " + JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.None, NullValueHandling = NullValueHandling.Ignore }));
             FrameFormat1 frameFormat = msa.body;
             switch (frameFormat.func)
             {
@@ -191,7 +191,7 @@ namespace OpcDAToMSA.modbus
                 serid = cfg.Msa.Mn,
                 body = frameFormat
             };
-            LoggerUtil.log.Debug("Ping：{@msa}", JsonConvert.SerializeObject(msa));
+            LoggerUtil.log.Debug("Ping: " + JsonConvert.SerializeObject(msa));
             return Packet(msa);
         }
 

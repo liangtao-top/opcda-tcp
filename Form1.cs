@@ -88,7 +88,8 @@ namespace OpcDAToMSA
             {
                 LoggerUtil.log.Fatal(e, "日志监听服务意外终止");
                 DialogResult dialogResult = MessageBox.Show(e.Message, "日志监听服务", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                throw;
+                Application.Exit();
+                return;
             }
             LoggerUtil.log.Information($"Logger Server Listening At http://127.0.0.1:31137");
             while (true)

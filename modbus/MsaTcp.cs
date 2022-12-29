@@ -288,7 +288,6 @@ namespace OpcDAToMSA.modbus
         public T body;
     };
 
-
     // Ping帧格式
     struct FrameFormat0
     {
@@ -305,6 +304,7 @@ namespace OpcDAToMSA.modbus
     };
 
     // 服务器返回状态帧格式
+    #pragma warning disable 649
     struct FrameFormat1
     {
         // 网关ID，唯一标识网关出厂 ID
@@ -319,8 +319,7 @@ namespace OpcDAToMSA.modbus
         public Func func;
         // 消息提示
         public string msg;
-    };
-
+    }
     // 数据上报帧格式
     struct FrameFormat2
     {

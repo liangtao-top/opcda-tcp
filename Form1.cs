@@ -17,8 +17,8 @@ namespace OpcDAToMSA
 {
     public partial class Form1 : Form
     {
-        private ToolStripMenuItem startMenuItem;
-        private ToolStripMenuItem stopMenuItem;
+        private readonly ToolStripMenuItem startMenuItem;
+        private readonly ToolStripMenuItem stopMenuItem;
         public Form1()
         {
 
@@ -31,11 +31,11 @@ namespace OpcDAToMSA
 
             startMenuItem = new ToolStripMenuItem("启动", Resources.qidong, new EventHandler(delegate (object sender, EventArgs e)
             {
-                this.startButton_Click(sender, e);
+                this.StartButton_Click(sender, e);
             }), Keys.F9);
             stopMenuItem = new ToolStripMenuItem("停止", Resources.tingzhi, new EventHandler(delegate (object sender, EventArgs e)
             {
-                this.stopButton_Click(sender, e);
+                this.StopButton_Click(sender, e);
             }), Keys.F10);
             cm.Items.Add(startMenuItem);
             cm.Items.Add(stopMenuItem);
@@ -70,7 +70,7 @@ namespace OpcDAToMSA
             (new Thread(new ThreadStart(LoggerListen))).Start();
             if (Config.GetConfig().AutoStart)
             {
-                this.startButton_Click(sender, e);
+                this.StartButton_Click(sender, e);
             }
         }
 
@@ -87,7 +87,7 @@ namespace OpcDAToMSA
             catch (Exception e)
             {
                 LoggerUtil.log.Fatal(e, "日志监听服务意外终止");
-                DialogResult dialogResult = MessageBox.Show(e.Message, "日志监听服务", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _ = MessageBox.Show(e.Message, "日志监听服务", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Application.Exit();
                 return;
             }
@@ -172,7 +172,7 @@ namespace OpcDAToMSA
         #endregion
 
         #region   TextBox控件跟随窗口变化自动缩放
-        private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
+        private void NotifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             if (this.WindowState == FormWindowState.Minimized)
             {
@@ -218,7 +218,7 @@ namespace OpcDAToMSA
 
         private OpcNet opcNet;
 
-        private void startButton_Click(object sender, EventArgs e)
+        private void StartButton_Click(object sender, EventArgs e)
         {
             button1.Enabled = false;
             startMenuItem.Enabled = false;
@@ -233,7 +233,7 @@ namespace OpcDAToMSA
             stopMenuItem.Enabled = true;
         }
 
-        private void stopButton_Click(object sender, EventArgs e)
+        private void StopButton_Click(object sender, EventArgs e)
         {
             this.opcNet?.Stop();
             okButton.Enabled = false;
@@ -255,10 +255,10 @@ namespace OpcDAToMSA
             switch (e.KeyCode)
             {
                 case Keys.F9:
-                    this.startButton_Click(sender, e);
+                    this.StartButton_Click(sender, e);
                     break;
                 case Keys.F10:
-                    this.stopButton_Click(sender, e);
+                    this.StopButton_Click(sender, e);
                     break;
             }
         }

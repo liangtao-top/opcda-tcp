@@ -48,7 +48,7 @@ namespace OpcDAToMSA
             this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));
             this.notifyIcon1.Text = "OpcDA To MSA";
             this.notifyIcon1.Visible = true;
-            this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_MouseDoubleClick);
+            this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.NotifyIcon1_MouseDoubleClick);
             // 
             // okButton
             // 
@@ -60,7 +60,7 @@ namespace OpcDAToMSA
             this.okButton.Size = new System.Drawing.Size(112, 32);
             this.okButton.TabIndex = 25;
             this.okButton.Text = "停止(&F10)";
-            this.okButton.Click += new System.EventHandler(this.stopButton_Click);
+            this.okButton.Click += new System.EventHandler(this.StopButton_Click);
             // 
             // button1
             // 
@@ -72,7 +72,7 @@ namespace OpcDAToMSA
             this.button1.Size = new System.Drawing.Size(112, 32);
             this.button1.TabIndex = 26;
             this.button1.Text = "启动(&F9)";
-            this.button1.Click += new System.EventHandler(this.startButton_Click);
+            this.button1.Click += new System.EventHandler(this.StartButton_Click);
             // 
             // label1
             // 

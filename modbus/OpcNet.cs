@@ -92,8 +92,15 @@ namespace OPCDA2MSA.opc
             server = new Opc.Da.Server(fact, url);
             try
             {
-                server.Connect(url, new ConnectData(new System.Net.NetworkCredential(cfg.Opcda.Username, cfg.Opcda.Password)));
-                //server.Connect();
+                LoggerUtil.log.Information("Opc Server Everyone: {@Everyone}", cfg.Opcda.Type.Equals("Everyone"));
+                if (cfg.Opcda.Type.Equals("Everyone"))
+                {
+                    server.Connect();
+                }
+                else
+                {
+                    server.Connect(url, new ConnectData(new System.Net.NetworkCredential(cfg.Opcda.Username, cfg.Opcda.Password)));
+                }
                 LoggerUtil.log.Information($@"Opc Server {host} {node} is connected");
                 _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"运行\"}")));
                 SetItems();
@@ -113,10 +120,11 @@ namespace OPCDA2MSA.opc
             }
             catch (Exception e)
             {
-                LoggerUtil.log.Fatal(e, "连接 Opc.Da.Server[" + host + "] 意外终止");
+                LoggerUtil.log.Fatal(e, $@"连接 Opc Server {host} {node} 意外终止");
+                LoggerUtil.log.Debug(e, $@"Runing: {runing}");
+                Thread.Sleep(cfg.Msa.Heartbeat);
                 if (runing)
                 {
-                    Thread.Sleep(cfg.Msa.Heartbeat);
                     Connect();
                 }
             }

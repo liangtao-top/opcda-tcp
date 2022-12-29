@@ -59,6 +59,8 @@ namespace OPCDA2MSA
         public string Username { get; set; }
         public string Password { get; set; }
 
+        public string Type { get; set; }
+
     }
 
     class ModbusJson

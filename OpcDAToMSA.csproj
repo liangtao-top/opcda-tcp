@@ -102,6 +102,9 @@
     <Reference Include="NModbus4, Version=3.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\NModbus4.3.0.0-alpha2\lib\net45\NModbus4.dll</HintPath>
     </Reference>
+    <Reference Include="OpcComRcw">
+      <HintPath>lib\OpcNetApi Assemblies\OpcComRcw.dll</HintPath>
+    </Reference>
     <Reference Include="OpcNetApi, Version=2.1.105.1, Culture=neutral, PublicKeyToken=9a40e993cbface53, processorArchitecture=MSIL">
       <HintPath>packages\RR-OpcNetApi.2.1.105.1\lib\40\OpcNetApi.dll</HintPath>
     </Reference>
@@ -110,6 +113,26 @@
     </Reference>
     <Reference Include="OpcNetApi.Xml, Version=2.1.105.1, Culture=neutral, PublicKeyToken=9a40e993cbface53, processorArchitecture=MSIL">
       <HintPath>packages\RR-OpcNetApi.2.1.105.1\lib\40\OpcNetApi.Xml.dll</HintPath>
+    </Reference>
+    <Reference Include="OpcRcw.Ae">
+      <HintPath>lib\OpcNetApi Assemblies\OpcRcw.Ae.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="OpcRcw.Comn">
+      <HintPath>lib\OpcNetApi Assemblies\OpcRcw.Comn.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="OpcRcw.Da">
+      <HintPath>lib\OpcNetApi Assemblies\OpcRcw.Da.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="OpcRcw.Dx">
+      <HintPath>lib\OpcNetApi Assemblies\OpcRcw.Dx.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="OpcRcw.Hda">
+      <HintPath>lib\OpcNetApi Assemblies\OpcRcw.Hda.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
     <Reference Include="Serilog, Version=2.0.0.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
       <HintPath>packages\Serilog.2.12.1-dev-01635\lib\net47\Serilog.dll</HintPath>
@@ -257,14 +280,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="favicon.ico" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcComRcw.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcNetApi.Com.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcNetApi.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcRcw.Ae.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcRcw.Comn.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcRcw.Da.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcRcw.Dx.dll" />
-    <Content Include="lib\OpcNetApi Assemblies\OpcRcw.Hda.dll" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8">

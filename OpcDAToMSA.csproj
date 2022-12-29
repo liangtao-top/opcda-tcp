@@ -83,6 +83,9 @@
     <AssemblyOriginatorKeyFile>OpcDAToMSA_TemporaryKey.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <PropertyGroup />
+  <PropertyGroup>
+    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Extensions.Configuration, Version=7.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Extensions.Configuration.7.0.0\lib\net462\Microsoft.Extensions.Configuration.dll</HintPath>
@@ -209,6 +212,7 @@
     <Compile Include="utils\ConvertUtil.cs" />
     <Compile Include="utils\HttpClientUtil.cs" />
     <Compile Include="utils\LoggerUtil.cs" />
+    <None Include="Properties\app.manifest" />
     <None Include="Resources\tuichu.png" />
     <None Include="Resources\tingzhi.png" />
     <None Include="Resources\qidong.png" />
@@ -237,7 +241,6 @@
     <None Include="LICENSE" />
     <None Include="OpcDAToMSA_TemporaryKey.pfx" />
     <None Include="packages.config" />
-    <None Include="Properties\app.manifest" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

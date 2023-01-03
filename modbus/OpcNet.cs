@@ -121,8 +121,8 @@ namespace OPCDA2MSA.opc
             catch (Exception e)
             {
                 LoggerUtil.log.Fatal(e, $@"连接 Opc Server {host} {node} 意外终止");
-                LoggerUtil.log.Debug(e, $@"Runing: {runing}");
                 Thread.Sleep(cfg.Msa.Heartbeat);
+                LoggerUtil.log.Debug(e, $@"Runing: {runing}");
                 if (runing)
                 {
                     Connect();
@@ -227,14 +227,16 @@ namespace OPCDA2MSA.opc
         public void Subscription()
         {
             //设定组状态
-            var state = new SubscriptionState();//组（订阅者）状态，相当于OPC规范中组的参数
-            state.Name = "Group0";//组名
-            state.ServerHandle = null;//服务器给该组分配的句柄。
-            state.ClientHandle = Guid.NewGuid().ToString();//客户端给该组分配的句柄。
-            state.Active = true;//激活该组。
-            state.UpdateRate = 100;//刷新频率为1秒。
-            state.Deadband = 0;// 死区值，设为0时，服务器端该组内任何数据变化都通知组。
-            state.Locale = null;//不设置地区值。
+            var state = new SubscriptionState
+            {
+                Name = "Group0",//组名
+                ServerHandle = null,//服务器给该组分配的句柄。
+                ClientHandle = Guid.NewGuid().ToString(),//客户端给该组分配的句柄。
+                Active = true,//激活该组。
+                UpdateRate = 100,//刷新频率为1秒。
+                Deadband = 0,// 死区值，设为0时，服务器端该组内任何数据变化都通知组。
+                Locale = null//不设置地区值。
+            };//组（订阅者）状态，相当于OPC规范中组的参数
 
             //添加组
             var subscription = (Subscription)server.CreateSubscription(state);//创建组
@@ -335,8 +337,8 @@ namespace OPCDA2MSA.opc
                 //    itemID = new ItemIdentifier(parent.ItemPath, TempName);
                 //}
 
-                BrowsePosition position = null;//地址空间巨大，则需要此使用此对象，一般不用。
-                BrowseElement[] elements = server.Browse(itemID, filters, out position);
+                //地址空间巨大，则需要此使用此对象，一般不用。
+                BrowseElement[] elements = server.Browse(itemID, filters, out BrowsePosition position);
                 if (elements != null)
                 {//浏览到服务器m_server对应itemID所包含的元素。
                     foreach (BrowseElement element in elements)
@@ -373,8 +375,10 @@ namespace OPCDA2MSA.opc
         //将浏览到的BrowseElement对象加入到控件TreeView中。
         private TreeNode AddBrowseElement(TreeNode previou, BrowseElement element)
         {
-            TreeNode node = new TreeNode(element.Name);
-            node.Tag = element;//将BrowseElement对象记录到节点。
+            TreeNode node = new TreeNode(element.Name)
+            {
+                Tag = element//将BrowseElement对象记录到节点。
+            };
             previou.Nodes.Add(node);//将节点加入到TreeView中。
             return node;// 返回node,由递归函数使用。
         }

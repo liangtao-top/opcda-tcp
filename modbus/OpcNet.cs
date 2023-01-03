@@ -122,7 +122,7 @@ namespace OPCDA2MSA.opc
             {
                 LoggerUtil.log.Fatal(e, $@"连接 Opc Server {host} {node} 意外终止");
                 Thread.Sleep(cfg.Msa.Heartbeat);
-                LoggerUtil.log.Debug(e, $@"Runing: {runing}");
+                //LoggerUtil.log.Debug(e, $@"Runing: {runing}");
                 if (runing)
                 {
                     Connect();

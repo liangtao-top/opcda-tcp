@@ -222,6 +222,7 @@ namespace OpcDAToMSA
         {
             button1.Enabled = false;
             startMenuItem.Enabled = false;
+            Config.heavyLoad();
             Thread thread = new Thread(new ThreadStart(delegate ()
             {
                 this.opcNet = new OpcNet();

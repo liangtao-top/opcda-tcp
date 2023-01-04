@@ -44,9 +44,10 @@ namespace OPCDA2MSA.opc
 
         public OpcNet()
         {
-            GetLocalServers();
+            this.cfg = Config.GetConfig();
+            this.GetLocalServers();
             //modbusTcp.Run();
-            msaTcp.Run();
+            this.msaTcp.Run();
         }
 
         // 获取计算机本地 Opc Server 列表

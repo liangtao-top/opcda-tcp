@@ -31,6 +31,27 @@ namespace OPCDA2MSA
             LoggerUtil.log.Debug("Config: {@cfg}", cfg);
             return cfg;
         }
+
+        public static CfgJson heavyLoad()
+        {
+            string jsonfile = Path.Combine(Application.StartupPath, "config.json");
+            LoggerUtil.log.Debug(jsonfile);
+            if (!File.Exists(jsonfile))
+            {
+                string msg = "找不到配置文件：" + jsonfile;
+                LoggerUtil.log.Error(msg);
+            }
+            string jsonStr = File.ReadAllText(jsonfile);
+            cfg = JsonConvert.DeserializeObject<CfgJson>(jsonStr);
+            if (cfg == null)
+            {
+                string msg = "配置文件：" + jsonfile + "，不是有效的JSON文件";
+                LoggerUtil.log.Error(msg);
+            }
+            //LoggerUtil.log.Debug("Config: \n{@cfg}", JsonConvert.SerializeObject(cfg, new JsonSerializerSettings() { Formatting = Formatting.Indented }));
+            LoggerUtil.log.Debug("Config: {@cfg}", cfg);
+            return cfg;
+        }
     }
 
     class CfgJson

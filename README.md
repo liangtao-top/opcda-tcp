@@ -16,6 +16,7 @@ OPCDA 协议转 MAS 协议
   "opcda": {
     "host": "192.168.147.129",// 远程服务器地址
     "node": "Matrikon.OPC.Simulation.1",// OPC服务名称
+    "type": "Everyone",// Everyone：匿名访问，None：用户名密码访问
     "username": "Administrator",// 用户名
     "password": "123456"// 密码
   },

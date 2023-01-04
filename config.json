@@ -3,7 +3,7 @@
   "opcda": {
     "host": "192.168.147.129",
     "node": "Matrikon.OPC.Simulation.1",
-    "type": "None",
+    "type": "Everyone",
     "username": "Administrator",
     "password": "123456"
   },

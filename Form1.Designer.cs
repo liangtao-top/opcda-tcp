@@ -96,10 +96,11 @@ namespace OpcDAToMSA
             // 
             // textBoxDescription
             // 
-            this.textBoxDescription.BackColor = System.Drawing.SystemColors.Control;
+            this.textBoxDescription.BackColor = System.Drawing.Color.Black;
             this.textBoxDescription.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.textBoxDescription.Dock = System.Windows.Forms.DockStyle.Top;
-            this.textBoxDescription.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.textBoxDescription.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.textBoxDescription.ForeColor = System.Drawing.Color.LightGray;
             this.textBoxDescription.Location = new System.Drawing.Point(0, 0);
             this.textBoxDescription.Margin = new System.Windows.Forms.Padding(8);
             this.textBoxDescription.Multiline = true;

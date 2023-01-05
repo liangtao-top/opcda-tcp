@@ -261,6 +261,18 @@ namespace OpcDAToMSA
                 case Keys.F10:
                     this.StopButton_Click(sender, e);
                     break;
+                case Keys.F11:
+                    AboutBox1 aboutBox = new AboutBox1();
+                    aboutBox.Show();
+                    break;
+                case Keys.F12:
+                    //this.notifyIcon1.Icon.Dispose();//清理任务托盘Icon资源。
+                    //this.notifyIcon1.Dispose();//清理任务托盘所有正在使用的资源。
+                    this.Dispose(true);//清理当前窗体所有正在使用的资源。
+                    Application.Exit();//强制所有消息中止，退出所有的窗体，但是若有托管线程（非主线程），也无法干净地退出；
+                    Environment.Exit(0);//这是最彻底的退出方式，不管什么线程都被强制退出，把程序结束的很干净。
+                    System.Diagnostics.Process.GetCurrentProcess().Kill();//结束整个进程
+                    break;
             }
         }
 

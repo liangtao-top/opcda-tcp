@@ -102,6 +102,12 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="NHotkey, Version=2.0.0.0, Culture=neutral, PublicKeyToken=a76ffb086700b11c, processorArchitecture=MSIL">
+      <HintPath>packages\NHotkey.2.1.0\lib\net45\NHotkey.dll</HintPath>
+    </Reference>
+    <Reference Include="NHotkey.WindowsForms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=a76ffb086700b11c, processorArchitecture=MSIL">
+      <HintPath>packages\NHotkey.WindowsForms.2.1.0\lib\net45\NHotkey.WindowsForms.dll</HintPath>
+    </Reference>
     <Reference Include="NModbus4, Version=3.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\NModbus4.3.0.0-alpha2\lib\net45\NModbus4.dll</HintPath>
     </Reference>

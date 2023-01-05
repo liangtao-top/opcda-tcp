@@ -12,47 +12,30 @@ using System.Linq;
 using OpcDAToMSA.Properties;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using NHotkey.WindowsForms;
+using Newtonsoft.Json.Linq;
+using NHotkey;
 
 namespace OpcDAToMSA
 {
     public partial class Form1 : Form
     {
-        private readonly ToolStripMenuItem startMenuItem;
-        private readonly ToolStripMenuItem stopMenuItem;
+        private OpcNet opcNet;
+
+        private ToolStripMenuItem startMenuItem;
+
+        private ToolStripMenuItem stopMenuItem;
+
         public Form1()
         {
-
+            //初始化Windows窗口组件
             InitializeComponent();
-
             //加载时 取消跨线程检查
             Control.CheckForIllegalCrossThreadCalls = false;
-
-            var cm = new ContextMenuStrip();
-
-            startMenuItem = new ToolStripMenuItem("启动", Resources.qidong, new EventHandler(delegate (object sender, EventArgs e)
-            {
-                this.StartButton_Click(sender, e);
-            }), Keys.F9);
-            stopMenuItem = new ToolStripMenuItem("停止", Resources.tingzhi, new EventHandler(delegate (object sender, EventArgs e)
-            {
-                this.StopButton_Click(sender, e);
-            }), Keys.F10);
-            cm.Items.Add(startMenuItem);
-            cm.Items.Add(stopMenuItem);
-            cm.Items.Add(new ToolStripSeparator());
-            cm.Items.Add(new ToolStripMenuItem("关于", Resources.about, new EventHandler(delegate (object sender, EventArgs e)
-            {
-                AboutBox1 aboutBox = new AboutBox1();
-                aboutBox.Show();
-            }), Keys.F11));
-            cm.Items.Add(new ToolStripMenuItem("退出", Resources.tuichu, new EventHandler(delegate (object sender, EventArgs e)
-            {
-                this.Dispose(true);
-                Application.Exit();
-                System.Diagnostics.Process.GetCurrentProcess().Kill();
-                Environment.Exit(0);
-            }), Keys.F12));
-            this.notifyIcon1.ContextMenuStrip = cm;
+            //加载任务栏托盘
+            MainNotifyIcon();
+            //设置全局热键
+            GlobalHotkey();
         }
 
         private void Form1_Activated(object sender, EventArgs e)
@@ -213,8 +196,6 @@ namespace OpcDAToMSA
         }
         #endregion
 
-        private OpcNet opcNet;
-
         private void StartButton_Click(object sender, EventArgs e)
         {
             button1.Enabled = false;
@@ -247,6 +228,7 @@ namespace OpcDAToMSA
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
         }
+
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
             //LoggerUtil.log.Debug(e.KeyCode.ToString());
@@ -271,6 +253,52 @@ namespace OpcDAToMSA
             }
         }
 
+        //任务栏托盘
+        private void MainNotifyIcon() {
+            var cm = new ContextMenuStrip();
+
+            startMenuItem = new ToolStripMenuItem("启动", Resources.qidong, new EventHandler(delegate (object sender, EventArgs e)
+            {
+                this.StartButton_Click(sender, e);
+            }), Keys.F9);
+            stopMenuItem = new ToolStripMenuItem("停止", Resources.tingzhi, new EventHandler(delegate (object sender, EventArgs e)
+            {
+                this.StopButton_Click(sender, e);
+            }), Keys.F10);
+            cm.Items.Add(startMenuItem);
+            cm.Items.Add(stopMenuItem);
+            cm.Items.Add(new ToolStripSeparator());
+            cm.Items.Add(new ToolStripMenuItem("关于", Resources.about, new EventHandler(delegate (object sender, EventArgs e)
+            {
+                AboutBox1 aboutBox = new AboutBox1();
+                aboutBox.Show();
+            }), Keys.F11));
+            cm.Items.Add(new ToolStripMenuItem("退出", Resources.tuichu, new EventHandler(delegate (object sender, EventArgs e)
+            {
+                this.Dispose(true);
+                Application.Exit();
+                System.Diagnostics.Process.GetCurrentProcess().Kill();
+                Environment.Exit(0);
+            }), Keys.F12));
+            this.notifyIcon1.ContextMenuStrip = cm;
+        }
+
+        //注册全局热键
+        private void GlobalHotkey()
+        {
+            HotkeyManager.Current.AddOrReplace("Start", Keys.Control | Keys.F9, delegate (object sender, HotkeyEventArgs e) {
+                Form1_KeyDown(sender, new KeyEventArgs(Keys.F9));
+            });
+            HotkeyManager.Current.AddOrReplace("Stop", Keys.Control | Keys.F10, delegate (object sender, HotkeyEventArgs e) {
+                Form1_KeyDown(sender, new KeyEventArgs(Keys.F10));
+            });
+            HotkeyManager.Current.AddOrReplace("About", Keys.Control | Keys.F11, delegate (object sender, HotkeyEventArgs e) {
+                Form1_KeyDown(sender, new KeyEventArgs(Keys.F11));
+            });
+            HotkeyManager.Current.AddOrReplace("Exit", Keys.Control | Keys.F12, delegate (object sender, HotkeyEventArgs e) {
+                Form1_KeyDown(sender, new KeyEventArgs(Keys.F12));
+            });
+        }
     }
 
     public class LogEvent

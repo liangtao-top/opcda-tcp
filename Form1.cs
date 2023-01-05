@@ -47,11 +47,8 @@ namespace OpcDAToMSA
             }), Keys.F11));
             cm.Items.Add(new ToolStripMenuItem("退出", Resources.tuichu, new EventHandler(delegate (object sender, EventArgs e)
             {
-                this.notifyIcon1.Icon.Dispose();
-                this.notifyIcon1.Dispose();
                 this.Dispose(true);
                 Application.Exit();
-                //强制结束进程并退出
                 System.Diagnostics.Process.GetCurrentProcess().Kill();
                 Environment.Exit(0);
             }), Keys.F12));
@@ -266,8 +263,6 @@ namespace OpcDAToMSA
                     aboutBox.Show();
                     break;
                 case Keys.F12:
-                    //this.notifyIcon1.Icon.Dispose();//清理任务托盘Icon资源。
-                    //this.notifyIcon1.Dispose();//清理任务托盘所有正在使用的资源。
                     this.Dispose(true);//清理当前窗体所有正在使用的资源。
                     Application.Exit();//强制所有消息中止，退出所有的窗体，但是若有托管线程（非主线程），也无法干净地退出；
                     Environment.Exit(0);//这是最彻底的退出方式，不管什么线程都被强制退出，把程序结束的很干净。

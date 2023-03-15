@@ -13,7 +13,6 @@ using OpcDAToMSA.Properties;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using NHotkey.WindowsForms;
-using Newtonsoft.Json.Linq;
 using NHotkey;
 
 namespace OpcDAToMSA
@@ -46,7 +45,6 @@ namespace OpcDAToMSA
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Form1_ClientHeight = this.ClientSize.Height;
-            //LoggerUtil.log.Debug("Form1_Load Form1_ClientHeight: {@Form1_ClientHeight}", this.Form1_ClientHeight);
             (new Thread(new ThreadStart(LoggerListen))).Start();
             if (Config.GetConfig().AutoStart)
             {
@@ -162,16 +160,19 @@ namespace OpcDAToMSA
             this.Activate();
         }
 
-        private float Form1_ClientHeight;
+        private double Form1_ClientHeight;
 
         private void Form1_Resize(object sender, EventArgs e)
         {
+            //int windowBorder = (this.Width - this.ClientRectangle.Width) / 2;
+            //int screenY = (this.Height - this.ClientRectangle.Height - windowBorder);
+            //LoggerUtil.log.Debug("Form1_Resize screenY: {@screenY} windowBorder: {@windowBorder}", screenY, windowBorder);
             //LoggerUtil.log.Debug("Form1_Resize Form1_ClientHeight: {@Form1_ClientHeight}", this.Form1_ClientHeight);
             var scale = GetScreenScalingFactor();
             //LoggerUtil.log.Debug("Height: {@Height}|{@Height}, {@b}, scale: {@scale}", this.Form1_ClientHeight, this.ClientSize.Height, this.Form1_ClientHeight.Equals(this.ClientSize.Height), scale);
-            if (Form1_ClientHeight > 0 )
+            if (this.Form1_ClientHeight > 0)
             {
-                this.textBoxDescription.Size = new Size(this.ClientSize.Width, (int)(this.ClientSize.Height - (60 / scale)));
+                this.textBoxDescription.Size = new Size(this.ClientSize.Width, (int)(this.ClientSize.Height - 40));
             }
         }
 
@@ -254,7 +255,8 @@ namespace OpcDAToMSA
         }
 
         //任务栏托盘
-        private void MainNotifyIcon() {
+        private void MainNotifyIcon()
+        {
             var cm = new ContextMenuStrip();
 
             startMenuItem = new ToolStripMenuItem("启动", Resources.qidong, new EventHandler(delegate (object sender, EventArgs e)
@@ -286,16 +288,20 @@ namespace OpcDAToMSA
         //注册全局热键
         private void GlobalHotkey()
         {
-            HotkeyManager.Current.AddOrReplace("Start", Keys.Control | Keys.F9, delegate (object sender, HotkeyEventArgs e) {
+            HotkeyManager.Current.AddOrReplace("Start", Keys.Control | Keys.F9, delegate (object sender, HotkeyEventArgs e)
+            {
                 Form1_KeyDown(sender, new KeyEventArgs(Keys.F9));
             });
-            HotkeyManager.Current.AddOrReplace("Stop", Keys.Control | Keys.F10, delegate (object sender, HotkeyEventArgs e) {
+            HotkeyManager.Current.AddOrReplace("Stop", Keys.Control | Keys.F10, delegate (object sender, HotkeyEventArgs e)
+            {
                 Form1_KeyDown(sender, new KeyEventArgs(Keys.F10));
             });
-            HotkeyManager.Current.AddOrReplace("About", Keys.Control | Keys.F11, delegate (object sender, HotkeyEventArgs e) {
+            HotkeyManager.Current.AddOrReplace("About", Keys.Control | Keys.F11, delegate (object sender, HotkeyEventArgs e)
+            {
                 Form1_KeyDown(sender, new KeyEventArgs(Keys.F11));
             });
-            HotkeyManager.Current.AddOrReplace("Exit", Keys.Control | Keys.F12, delegate (object sender, HotkeyEventArgs e) {
+            HotkeyManager.Current.AddOrReplace("Exit", Keys.Control | Keys.F12, delegate (object sender, HotkeyEventArgs e)
+            {
                 Form1_KeyDown(sender, new KeyEventArgs(Keys.F12));
             });
         }

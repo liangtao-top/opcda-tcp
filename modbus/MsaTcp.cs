@@ -11,6 +11,9 @@ using Opc.Da;
 using Newtonsoft.Json;
 using OpcDAToMSA.utils;
 using System.IO;
+using Newtonsoft.Json.Linq;
+using OpcDAToMSA.Properties;
+using System.Security.Policy;
 
 namespace OpcDAToMSA.modbus
 {
@@ -124,7 +127,15 @@ namespace OpcDAToMSA.modbus
                     if (regs.ContainsKey(values[i].ItemName))
                     {
                         regs.TryGetValue(values[i].ItemName, out string key);
-                        data.Add(key, values[i].Value);
+                        if (!String.IsNullOrEmpty(key)) {
+                            try {
+                                data.Add(key, values[i].Value);
+                            }
+                            catch (Exception e) {
+                                LoggerUtil.log.Debug("key: {@key}, value: {@value}", key, values[i].Value);
+                                LoggerUtil.log.Error(e.ToString());
+                            }
+                        }
                     }
                     else
                     {

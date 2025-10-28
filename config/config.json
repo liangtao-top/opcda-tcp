@@ -1,15 +1,15 @@
 {
   "autoStart": false,
   "opcda": {
-    "host": "192.168.147.129",
-    "node": "Matrikon.OPC.Simulation.1",
+    "host": "localhost",
+    "node": "NT6000.eNetOPC.4",
     "type": "Everyone",
-    "username": "Administrator",
-    "password": "123456"
+    "username": "",
+    "password": ""
   },
   "protocols": {
     "msa": {
-      "enabled": true,
+      "enabled": false,
       "name": "MSA Protocol",
       "description": "Manufacturing System Architecture Protocol",
       "version": "1.0",
@@ -44,7 +44,7 @@
       }
     },
     "modbusTcp": {
-      "enabled": true,
+      "enabled": false,
       "name": "Modbus TCP Protocol",
       "description": "Modbus TCP/IP Communication Protocol",
       "version": "1.0",

@@ -19,6 +19,11 @@ namespace OpcDAToMSA.Configuration
         // 指标注册表 位号->编码
         public Dictionary<string, string> Registers { get; set; }
         public LoggerJson Logger { get; set; }
+        
+        /// <summary>
+        /// 监控配置
+        /// </summary>
+        public MonitoringJson Monitoring { get; set; }
     }
 
     /// <summary>
@@ -26,8 +31,241 @@ namespace OpcDAToMSA.Configuration
     /// </summary>
     public class LoggerJson
     {
-        public string Level { get; set; }
-        public string File { get; set; }
+        /// <summary>
+        /// 日志级别 (trace, debug, info, warn, error, fatal)
+        /// </summary>
+        public string Level { get; set; } = "info";
+
+        /// <summary>
+        /// 日志文件路径配置
+        /// </summary>
+        public LogPathConfig Path { get; set; } = new LogPathConfig();
+
+        /// <summary>
+        /// 最大文件大小 (如: 10MB, 100MB)
+        /// </summary>
+        public string MaxSize { get; set; } = "10MB";
+
+        /// <summary>
+        /// 最大保留文件数量
+        /// </summary>
+        public int MaxFiles { get; set; } = 5;
+
+        /// <summary>
+        /// 是否输出到控制台
+        /// </summary>
+        public bool Console { get; set; } = true;
+
+        /// <summary>
+        /// 是否使用结构化日志
+        /// </summary>
+        public bool Structured { get; set; } = true;
+
+        /// <summary>
+        /// 日志模板
+        /// </summary>
+        public string Template { get; set; } = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
+
+        /// <summary>
+        /// 是否启用文件日志
+        /// </summary>
+        public bool FileEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 是否启用异步日志
+        /// </summary>
+        public bool AsyncEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 异步日志缓冲区大小
+        /// </summary>
+        public int BufferSize { get; set; } = 1000;
+    }
+
+    /// <summary>
+    /// 日志路径配置类
+    /// </summary>
+    public class LogPathConfig
+    {
+        /// <summary>
+        /// 日志根目录
+        /// </summary>
+        public string RootDirectory { get; set; } = "logs";
+
+        /// <summary>
+        /// 主日志文件名
+        /// </summary>
+        public string MainFileName { get; set; } = "application.log";
+
+        /// <summary>
+        /// 错误日志文件名
+        /// </summary>
+        public string ErrorFileName { get; set; } = "error.log";
+
+        /// <summary>
+        /// 调试日志文件名
+        /// </summary>
+        public string DebugFileName { get; set; } = "debug.log";
+
+        /// <summary>
+        /// 文件名模式 (支持日期格式: yyyy-MM-dd, yyyy-MM, yyyy)
+        /// </summary>
+        public string FileNamePattern { get; set; } = "yyyy-MM-dd";
+
+        /// <summary>
+        /// 是否按日期分目录
+        /// </summary>
+        public bool UseDateSubDirectory { get; set; } = true;
+
+        /// <summary>
+        /// 是否按日志级别分文件
+        /// </summary>
+        public bool UseLevelSubDirectory { get; set; } = false;
+
+        /// <summary>
+        /// 获取完整日志文件路径
+        /// </summary>
+        /// <param name="logLevel">日志级别</param>
+        /// <returns>完整路径</returns>
+        public string GetFullPath(string logLevel = "info")
+        {
+            var basePath = RootDirectory;
+
+            // 按日期分目录
+            if (UseDateSubDirectory)
+            {
+                basePath = Path.Combine(basePath, DateTime.Now.ToString(FileNamePattern));
+            }
+
+            // 按级别分目录
+            if (UseLevelSubDirectory)
+            {
+                basePath = Path.Combine(basePath, logLevel.ToLower());
+            }
+
+            // 确保目录存在
+            Directory.CreateDirectory(basePath);
+
+            // 选择文件名
+            string fileName;
+            switch (logLevel.ToLower())
+            {
+                case "error":
+                case "fatal":
+                    fileName = ErrorFileName;
+                    break;
+                case "debug":
+                case "trace":
+                    fileName = DebugFileName;
+                    break;
+                default:
+                    fileName = MainFileName;
+                    break;
+            }
+
+            return Path.Combine(basePath, fileName);
+        }
+    }
+
+    /// <summary>
+    /// 监控配置类
+    /// </summary>
+    public class MonitoringJson
+    {
+        /// <summary>
+        /// 是否启用监控
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// 健康检查间隔 (毫秒)
+        /// </summary>
+        public int HealthCheckInterval { get; set; } = 30000;
+
+        /// <summary>
+        /// 指标收集间隔 (毫秒)
+        /// </summary>
+        public int MetricsInterval { get; set; } = 10000;
+
+        /// <summary>
+        /// 告警配置
+        /// </summary>
+        public AlertConfig Alerts { get; set; } = new AlertConfig();
+
+        /// <summary>
+        /// 性能阈值配置
+        /// </summary>
+        public PerformanceThresholds Performance { get; set; } = new PerformanceThresholds();
+    }
+
+    /// <summary>
+    /// 告警配置类
+    /// </summary>
+    public class AlertConfig
+    {
+        /// <summary>
+        /// 连接超时时间 (毫秒)
+        /// </summary>
+        public int ConnectionTimeout { get; set; } = 5000;
+
+        /// <summary>
+        /// 数据丢失阈值 (连续失败次数)
+        /// </summary>
+        public int DataLossThreshold { get; set; } = 10;
+
+        /// <summary>
+        /// 内存使用率告警阈值 (百分比)
+        /// </summary>
+        public double MemoryUsageThreshold { get; set; } = 80.0;
+
+        /// <summary>
+        /// CPU使用率告警阈值 (百分比)
+        /// </summary>
+        public double CpuUsageThreshold { get; set; } = 80.0;
+
+        /// <summary>
+        /// 是否启用邮件告警
+        /// </summary>
+        public bool EmailAlerts { get; set; } = false;
+
+        /// <summary>
+        /// 邮件配置
+        /// </summary>
+        public EmailConfig Email { get; set; } = new EmailConfig();
+    }
+
+    /// <summary>
+    /// 邮件配置类
+    /// </summary>
+    public class EmailConfig
+    {
+        public string SmtpServer { get; set; } = "";
+        public int SmtpPort { get; set; } = 587;
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string FromAddress { get; set; } = "";
+        public List<string> ToAddresses { get; set; } = new List<string>();
+    }
+
+    /// <summary>
+    /// 性能阈值配置类
+    /// </summary>
+    public class PerformanceThresholds
+    {
+        /// <summary>
+        /// 最大响应时间 (毫秒)
+        /// </summary>
+        public int MaxResponseTime { get; set; } = 1000;
+
+        /// <summary>
+        /// 最大数据处理延迟 (毫秒)
+        /// </summary>
+        public int MaxDataProcessingDelay { get; set; } = 500;
+
+        /// <summary>
+        /// 最小吞吐量 (每秒处理数量)
+        /// </summary>
+        public int MinThroughput { get; set; } = 10;
     }
 
     /// <summary>
@@ -35,10 +273,29 @@ namespace OpcDAToMSA.Configuration
     /// </summary>
     public class OpcDaJson
     {
+        /// <summary>
+        /// OPC服务器主机地址
+        /// </summary>
         public string Host { get; set; }
+
+        /// <summary>
+        /// OPC服务器节点名称
+        /// </summary>
         public string Node { get; set; }
+
+        /// <summary>
+        /// 用户名
+        /// </summary>
         public string Username { get; set; }
+
+        /// <summary>
+        /// 密码
+        /// </summary>
         public string Password { get; set; }
+
+        /// <summary>
+        /// 认证类型 (Everyone, Windows, User)
+        /// </summary>
         public string Type { get; set; }
     }
 
@@ -50,12 +307,27 @@ namespace OpcDAToMSA.Configuration
         /// <summary>
         /// 是否启用该协议
         /// </summary>
-        public bool Enabled { get; set; }
+        public bool Enabled { get; set; } = true;
 
         /// <summary>
         /// 协议特定设置
         /// </summary>
         public Dictionary<string, object> Settings { get; set; } = new Dictionary<string, object>();
+
+        /// <summary>
+        /// 协议名称
+        /// </summary>
+        public string Name { get; set; } = "";
+
+        /// <summary>
+        /// 协议描述
+        /// </summary>
+        public string Description { get; set; } = "";
+
+        /// <summary>
+        /// 协议版本
+        /// </summary>
+        public string Version { get; set; } = "1.0";
     }
 
     /// <summary>
@@ -339,6 +611,12 @@ namespace OpcDAToMSA.Configuration
                     _currentConfiguration = config;
                 }
 
+                // 应用日志配置
+                if (config.Logger != null)
+                {
+                    LoggerUtil.Configuration(config.Logger);
+                }
+
                 LoggerUtil.log.Information("配置加载成功");
                 return config;
             }
@@ -379,8 +657,25 @@ namespace OpcDAToMSA.Configuration
                 Registers = new Dictionary<string, string>(),
                 Logger = new LoggerJson
                 {
-                    Level = "Info",
-                    File = "logs/log.txt"
+                    Level = "info",
+                    Path = new LogPathConfig
+                    {
+                        RootDirectory = "logs",
+                        MainFileName = "application.log",
+                        ErrorFileName = "error.log",
+                        DebugFileName = "debug.log",
+                        FileNamePattern = "yyyy-MM-dd",
+                        UseDateSubDirectory = true,
+                        UseLevelSubDirectory = false
+                    },
+                    MaxSize = "10MB",
+                    MaxFiles = 5,
+                    Console = true,
+                    Structured = true,
+                    Template = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                    FileEnabled = true,
+                    AsyncEnabled = true,
+                    BufferSize = 1000
                 }
             };
         }

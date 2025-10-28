@@ -10,16 +10,24 @@
   "protocols": {
     "msa": {
       "enabled": true,
+      "name": "MSA Protocol",
+      "description": "Manufacturing System Architecture Protocol",
+      "version": "1.0",
       "settings": {
         "mn": 100000000,
         "ip": "117.172.118.16",
         "port": 31100,
         "interval": 10000,
-        "heartbeat": 5000
+        "heartbeat": 5000,
+        "batchSize": 100,
+        "retryCount": 3
       }
     },
     "mqtt": {
       "enabled": true,
+      "name": "MQTT Protocol",
+      "description": "Message Queuing Telemetry Transport",
+      "version": "3.1.1",
       "settings": {
         "broker": "mqtt://broker.example.com:1883",
         "clientId": "opcda-gateway",
@@ -31,15 +39,21 @@
         },
         "qos": 1,
         "retain": false,
-        "cleanSession": true
+        "cleanSession": true,
+        "keepAlive": 60
       }
     },
     "modbusTcp": {
       "enabled": true,
+      "name": "Modbus TCP Protocol",
+      "description": "Modbus TCP/IP Communication Protocol",
+      "version": "1.0",
       "settings": {
         "ip": "0.0.0.0",
         "port": 502,
         "station": 1,
+        "timeout": 5000,
+        "retryCount": 3,
         "registerMapping": {
           "OPC的模拟量serveNAOH.02LIA_0701A": 1000,
           "OPC的模拟量serverHCN.LIC033201": 1001,
@@ -54,7 +68,48 @@
     "OPC的模拟量serverHCN.LI03102": "511110066004G0002YL001"
   },
   "logger": {
-    "level": "debug",
-    "file": "logs/log.txt"
+    "level": "info",
+    "path": {
+      "rootDirectory": "logs",
+      "mainFileName": "application.log",
+      "errorFileName": "error.log",
+      "debugFileName": "debug.log",
+      "fileNamePattern": "yyyy-MM-dd",
+      "useDateSubDirectory": true,
+      "useLevelSubDirectory": false
+    },
+    "maxSize": "10MB",
+    "maxFiles": 5,
+    "console": true,
+    "structured": true,
+    "template": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+    "fileEnabled": true,
+    "asyncEnabled": true,
+    "bufferSize": 1000
+  },
+  "monitoring": {
+    "enabled": true,
+    "healthCheckInterval": 30000,
+    "metricsInterval": 10000,
+    "alerts": {
+      "connectionTimeout": 5000,
+      "dataLossThreshold": 10,
+      "memoryUsageThreshold": 80.0,
+      "cpuUsageThreshold": 80.0,
+      "emailAlerts": false,
+      "email": {
+        "smtpServer": "",
+        "smtpPort": 587,
+        "username": "",
+        "password": "",
+        "fromAddress": "",
+        "toAddresses": []
+      }
+    },
+    "performance": {
+      "maxResponseTime": 1000,
+      "maxDataProcessingDelay": 500,
+      "minThroughput": 10
+    }
   }
 }

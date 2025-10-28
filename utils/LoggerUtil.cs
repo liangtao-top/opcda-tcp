@@ -1,6 +1,6 @@
 ﻿using Serilog.Core;
 using Serilog;
-using OPCDA2MSA;
+using OpcDAToMSA;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 

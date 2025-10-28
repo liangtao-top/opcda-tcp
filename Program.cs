@@ -1,7 +1,7 @@
 ﻿using OpcDAToMSA.utils;
 using System;
 using System.Windows.Forms;
-using OPCDA2MSA;
+using OpcDAToMSA;
 using Microsoft.Win32;
 
 namespace OpcDAToMSA
@@ -67,7 +67,7 @@ namespace OpcDAToMSA
                 {
                     RegistryKey R_local = Registry.LocalMachine;//RegistryKey R_local = Registry.CurrentUser;
                     RegistryKey R_run = R_local.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run");
-                    R_run.SetValue("OPCDA2MSA", Application.ExecutablePath);
+                    R_run.SetValue("OpcDAToMSA", Application.ExecutablePath);
                     R_run.Close();
                     R_local.Close();
                 }
@@ -75,7 +75,7 @@ namespace OpcDAToMSA
                 {
                     RegistryKey R_local = Registry.LocalMachine;//RegistryKey R_local = Registry.CurrentUser;
                     RegistryKey R_run = R_local.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run");
-                    R_run.DeleteValue("OPCDA2MSA", false);
+                    R_run.DeleteValue("OpcDAToMSA", false);
                     R_run.Close();
                     R_local.Close();
                 }

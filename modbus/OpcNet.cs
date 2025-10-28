@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace OPCDA2MSA.opc
+namespace OpcDAToMSA.opc
 {
     public class OpcNet
     {
@@ -25,6 +25,26 @@ namespace OPCDA2MSA.opc
         public List<Item> filterItems = null;
 
         private readonly CfgJson cfg = Config.GetConfig();
+
+        /// <summary>
+        /// 获取 MSA 配置
+        /// </summary>
+        private Dictionary<string, object> GetMsaSettings()
+        {
+            if (cfg.Protocols != null && cfg.Protocols.ContainsKey("msa"))
+            {
+                return cfg.Protocols["msa"].Settings;
+            }
+            else
+            {
+                // 使用默认设置
+                return new Dictionary<string, object>
+                {
+                    ["heartbeat"] = 5000,
+                    ["interval"] = 10000
+                };
+            }
+        }
 
         //定义枚举基于COM服务器的接口，用来搜索所有的此类服务器。
         private readonly IDiscovery discovery = new OpcCom.ServerEnumerator();
@@ -128,7 +148,8 @@ namespace OPCDA2MSA.opc
             catch (Exception e)
             {
                 LoggerUtil.log.Fatal(e, $@"连接 Opc Server {host} {node} 意外终止");
-                Thread.Sleep(cfg.Msa.Heartbeat);
+                var msaSettings = GetMsaSettings();
+                Thread.Sleep(System.Convert.ToInt32(msaSettings["heartbeat"]));
                 //LoggerUtil.log.Debug(e, $@"Runing: {runing}");
                 if (runing)
                 {
@@ -171,7 +192,8 @@ namespace OPCDA2MSA.opc
                     LoggerUtil.log.Fatal(ex, "Opc.Da.Server.Read 意外终止");
                     Connect();
                 }
-                Thread.Sleep(cfg.Msa.Interval);
+                var msaSettings = GetMsaSettings();
+                Thread.Sleep(System.Convert.ToInt32(msaSettings["interval"]));
             }
         }
 

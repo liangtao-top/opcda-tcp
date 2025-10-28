@@ -1,7 +1,7 @@
 using Opc.Da;
 using OpcDAToMSA.utils;
 using OpcDAToMSA.modbus;
-using OPCDA2MSA;
+using OpcDAToMSA;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,13 +47,13 @@ namespace OpcDAToMSA.Protocols
                 }
                 else
                 {
-                    // 兼容旧配置格式
+                    // 使用默认设置
                     LoggerUtil.log.Warning("未找到 Modbus TCP 协议配置，使用默认设置");
                     this.modbusTcpSettings = new Dictionary<string, object>
                     {
-                        ["ip"] = config.Modbus?.Slave?.Ip ?? "0.0.0.0",
-                        ["port"] = config.Modbus?.Slave?.Port ?? 502,
-                        ["station"] = config.Modbus?.Slave?.Station ?? 1
+                        ["ip"] = "0.0.0.0",
+                        ["port"] = 502,
+                        ["station"] = 1
                     };
                 }
 

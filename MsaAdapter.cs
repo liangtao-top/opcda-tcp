@@ -1,7 +1,7 @@
 using Opc.Da;
 using OpcDAToMSA.utils;
 using OpcDAToMSA.modbus;
-using OPCDA2MSA;
+using OpcDAToMSA;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -44,14 +44,14 @@ namespace OpcDAToMSA.Protocols
                 }
                 else
                 {
-                    // 兼容旧配置格式
+                    // 使用默认设置
                     LoggerUtil.log.Warning("未找到 MSA 协议配置，使用默认设置");
                     this.msaSettings = new Dictionary<string, object>
                     {
-                        ["mn"] = config.Msa?.Mn ?? 100000000,
-                        ["ip"] = config.Msa?.Ip ?? "127.0.0.1",
-                        ["port"] = config.Msa?.Port ?? 31100,
-                        ["heartbeat"] = config.Msa?.Heartbeat ?? 5000
+                        ["mn"] = 100000000,
+                        ["ip"] = "127.0.0.1",
+                        ["port"] = 31100,
+                        ["heartbeat"] = 5000
                     };
                 }
 

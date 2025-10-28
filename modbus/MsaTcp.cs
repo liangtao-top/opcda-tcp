@@ -6,7 +6,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using OPCDA2MSA;
+using OpcDAToMSA;
 using Opc.Da;
 using Newtonsoft.Json;
 using OpcDAToMSA.utils;
@@ -30,6 +30,28 @@ namespace OpcDAToMSA.modbus
         private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
 
         /// <summary>
+        /// 获取 MSA 配置
+        /// </summary>
+        private Dictionary<string, object> GetMsaSettings()
+        {
+            if (cfg.Protocols != null && cfg.Protocols.ContainsKey("msa"))
+            {
+                return cfg.Protocols["msa"].Settings;
+            }
+            else
+            {
+                // 使用默认设置
+                return new Dictionary<string, object>
+                {
+                    ["ip"] = "127.0.0.1",
+                    ["port"] = 31100,
+                    ["mn"] = 100000000,
+                    ["heartbeat"] = 5000
+                };
+            }
+        }
+
+        /// <summary>
         /// 获取连接状态
         /// </summary>
         public bool IsConnected => tcpClient != null && tcpClient.Connected;
@@ -43,13 +65,18 @@ namespace OpcDAToMSA.modbus
             this.runing = true;
             _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"连接\"}")));
             tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            EndPoint ep = new IPEndPoint(IPAddress.Parse(cfg.Msa.Ip), cfg.Msa.Port);
+            
+            var msaSettings = GetMsaSettings();
+            var ip = msaSettings["ip"].ToString();
+            var port = System.Convert.ToInt32(msaSettings["port"]);
+            
+            EndPoint ep = new IPEndPoint(IPAddress.Parse(ip), port);
             try
             {
                 tcpClient.SendTimeout = 1000;
                 //连接Socket
                 tcpClient.Connect(ep);
-                LoggerUtil.log.Information($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is connected");
+                LoggerUtil.log.Information($@"MSA Server {ip}:{port} is connected");
                 _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"运行\"}")));
                 Task.Run(new Action(() =>
                 {
@@ -64,7 +91,7 @@ namespace OpcDAToMSA.modbus
                             LoggerUtil.log.Fatal(ex, "Ping Exception");
                             break;
                         }
-                        Thread.Sleep(cfg.Msa.Heartbeat);
+                        Thread.Sleep(System.Convert.ToInt32(msaSettings["heartbeat"]));
                     }
                 }));
                 Task.Run(new Action(() =>
@@ -93,14 +120,18 @@ namespace OpcDAToMSA.modbus
             catch (Exception ex)
             {
                 LoggerUtil.log.Fatal(ex, "连接远程 MSA Server 意外终止");
-                Thread.Sleep(cfg.Msa.Heartbeat);
+                var msaSettingsRetry = GetMsaSettings();
+                Thread.Sleep(System.Convert.ToInt32(msaSettingsRetry["heartbeat"]));
                 Run();
             }
         }
 
         public void Stop() { 
             this.runing= false;
-            LoggerUtil.log.Information($@"MSA Server {cfg.Msa.Ip}:{cfg.Msa.Port} is stop");
+            var msaSettings = GetMsaSettings();
+            var ip = msaSettings["ip"].ToString();
+            var port = System.Convert.ToInt32(msaSettings["port"]);
+            LoggerUtil.log.Information($@"MSA Server {ip}:{port} is stop");
             _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"停止\"}")));
         }
 
@@ -165,9 +196,12 @@ namespace OpcDAToMSA.modbus
         // 模板数据封包
         private byte[] Escalation(Dictionary<string, object> data)
         {
+            var msaSettings = GetMsaSettings();
+            var mn = System.Convert.ToUInt32(msaSettings["mn"]);
+            
             FrameFormat2 frameFormat = new FrameFormat2()
             {
-                gid = "G" + cfg.Msa.Mn,
+                gid = "G" + mn,
                 ptid = 0,
                 cid = 1,
                 time = DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss"),
@@ -184,7 +218,7 @@ namespace OpcDAToMSA.modbus
                 type = Encoding.UTF8.GetBytes("N")[0],//N代表无符号、网络字节序、4 字节
                 uid = uid,
                 length = (uint)body.Length,
-                serid = cfg.Msa.Mn,
+                serid = mn,
                 body = frameFormat
             };
             LoggerUtil.log.Information("Escalation: \r\n" + JsonConvert.SerializeObject(msa, new JsonSerializerSettings() { Formatting = Formatting.Indented }));
@@ -193,9 +227,12 @@ namespace OpcDAToMSA.modbus
 
         private byte[] Ping()
         {
+            var msaSettings = GetMsaSettings();
+            var mn = System.Convert.ToUInt32(msaSettings["mn"]);
+            
             FrameFormat0 frameFormat = new FrameFormat0()
             {
-                gid = "G" + cfg.Msa.Mn,
+                gid = "G" + mn,
                 ptid = 0,
                 cid = 1,
                 time = DateTime.Now.ToString("yyyy/MM/dd hh:mm:ss"),
@@ -208,7 +245,7 @@ namespace OpcDAToMSA.modbus
                 type = Encoding.UTF8.GetBytes("N")[0],//N代表无符号、网络字节序、4 字节
                 uid = uid,
                 length = (uint)body.Length,
-                serid = cfg.Msa.Mn,
+                serid = mn,
                 body = frameFormat
             };
             LoggerUtil.log.Debug("Ping: " + JsonConvert.SerializeObject(msa));

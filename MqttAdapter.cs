@@ -1,7 +1,7 @@
 using Newtonsoft.Json;
 using Opc.Da;
 using OpcDAToMSA.utils;
-using OPCDA2MSA;
+using OpcDAToMSA;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;

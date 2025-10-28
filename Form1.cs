@@ -6,7 +6,7 @@ using System.IO;
 using System.Threading;
 using OpcDAToMSA.utils;
 using Newtonsoft.Json;
-using OpcDAToMSA.opc;
+using OpcDAToMSA.Core;
 using OpcDAToMSA;
 using System.Linq;
 using OpcDAToMSA.Properties;

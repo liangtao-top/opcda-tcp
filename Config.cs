@@ -61,6 +61,8 @@ namespace OPCDA2MSA
         public OpcDaJson Opcda { get; set; }
         public ModbusJson Modbus { get; set; }
         public MsaJson Msa { get; set; }
+        // 协议配置字典
+        public Dictionary<string, ProtocolConfig> Protocols { get; set; }
         // 指标注册表 位号->编码
         public Dictionary<string, string> Registers { get; set; }
         public LoggerJson Logger { get; set; }
@@ -111,5 +113,21 @@ namespace OPCDA2MSA
         public int Heartbeat { get; set; }
         // OPCDA数据上报间隔，单位毫秒
         public int Interval { get; set; }
+    }
+
+    /// <summary>
+    /// 协议配置基类
+    /// </summary>
+    class ProtocolConfig
+    {
+        /// <summary>
+        /// 是否启用该协议
+        /// </summary>
+        public bool Enabled { get; set; }
+
+        /// <summary>
+        /// 协议特定设置
+        /// </summary>
+        public Dictionary<string, object> Settings { get; set; }
     }
 }

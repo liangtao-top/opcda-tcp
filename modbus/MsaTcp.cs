@@ -29,6 +29,11 @@ namespace OpcDAToMSA.modbus
 
         private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
 
+        /// <summary>
+        /// 获取连接状态
+        /// </summary>
+        public bool IsConnected => tcpClient != null && tcpClient.Connected;
+
         public MsaTcp() {
             this.cfg = Config.GetConfig();
         }

@@ -206,7 +206,8 @@ namespace OpcDAToMSA
             {
                 this.opcNet = new OpcNet();
                 this.opcNet.Connect();
-                this.opcNet.MsaTcp();
+                // 修改为异步调用新的数据发送方法
+                this.opcNet.SendDataAsync().Wait();
             }));
             thread.Start();
             okButton.Enabled = true;

@@ -2,11 +2,13 @@
 using Opc.Da;
 using OpcDAToMSA.modbus;
 using OpcDAToMSA.utils;
+using OpcDAToMSA.Protocols;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace OPCDA2MSA.opc
@@ -36,7 +38,9 @@ namespace OPCDA2MSA.opc
 
         //private readonly ModbusTcp modbusTcp = new ModbusTcp();
 
-        private readonly MsaTcp msaTcp = new MsaTcp();
+        //private readonly MsaTcp msaTcp = new MsaTcp();
+
+        private readonly ProtocolRouter protocolRouter = new ProtocolRouter();
 
         private bool runing = true;
 
@@ -47,7 +51,9 @@ namespace OPCDA2MSA.opc
             this.cfg = Config.GetConfig();
             this.GetLocalServers();
             //modbusTcp.Run();
-            this.msaTcp.Run();
+            //this.msaTcp.Run();
+            // 初始化协议路由器
+            this.protocolRouter.InitializeAsync().Wait();
         }
 
         // 获取计算机本地 Opc Server 列表
@@ -133,12 +139,14 @@ namespace OPCDA2MSA.opc
         public void Stop()
         {
             this.runing = false;
-            msaTcp.Stop();
+            //msaTcp.Stop();
+            // 停止协议路由器
+            this.protocolRouter.StopAsync().Wait();
             LoggerUtil.log.Information($@"Opc Server {cfg.Opcda.Host} {cfg.Opcda.Node} is stop");
             _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"停止\"}")));
         }
 
-        public void MsaTcp()
+        public async Task SendDataAsync()
         {
             while (runing)
             {
@@ -149,7 +157,8 @@ namespace OPCDA2MSA.opc
                         ItemValueResult[] values = server.Read(filterItems.ToArray());
                         if (values != null && values.Length > 0)
                         {
-                            msaTcp.Send(values);
+                            // 使用协议路由器发送数据
+                            await protocolRouter.SendDataAsync(values);
                         }
                     }
                     else

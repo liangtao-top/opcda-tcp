@@ -7,18 +7,45 @@
     "username": "Administrator",
     "password": "123456"
   },
-  "msa": {
-    "mn": 100000000,
-    "ip": "117.172.118.16",
-    "port": 31100,
-    "interval": 10000,
-    "heartbeat": 5000
-  },
-  "modbus": {
-    "slave": {
-      "ip": "0.0.0.0",
-      "port": 502,
-      "station": 1
+  "protocols": {
+    "msa": {
+      "enabled": true,
+      "settings": {
+        "mn": 100000000,
+        "ip": "117.172.118.16",
+        "port": 31100,
+        "interval": 10000,
+        "heartbeat": 5000
+      }
+    },
+    "mqtt": {
+      "enabled": true,
+      "settings": {
+        "broker": "mqtt://broker.example.com:1883",
+        "clientId": "opcda-gateway",
+        "username": "mqtt_user",
+        "password": "mqtt_pass",
+        "topics": {
+          "data": "opcda/data",
+          "status": "opcda/status"
+        },
+        "qos": 1,
+        "retain": false,
+        "cleanSession": true
+      }
+    },
+    "modbusTcp": {
+      "enabled": true,
+      "settings": {
+        "ip": "0.0.0.0",
+        "port": 502,
+        "station": 1,
+        "registerMapping": {
+          "OPC的模拟量serveNAOH.02LIA_0701A": 1000,
+          "OPC的模拟量serverHCN.LIC033201": 1001,
+          "OPC的模拟量serverHCN.LI03102": 1002
+        }
+      }
     }
   },
   "registers": {

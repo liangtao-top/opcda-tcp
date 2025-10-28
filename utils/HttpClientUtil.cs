@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpcDAToMSA.utils
@@ -36,5 +37,11 @@ namespace OpcDAToMSA.utils
         }
 
         public void Dispose() => httpClient?.Dispose();
+
+        public async Task<HttpResponseMessage> PostAsync(string requestUri, Stream contentStream, CancellationToken cancellationToken)
+        {
+            var streamContent = new StreamContent(contentStream);
+            return await httpClient.PostAsync(requestUri, streamContent, cancellationToken);
+        }
     }
 }

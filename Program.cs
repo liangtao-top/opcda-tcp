@@ -1,8 +1,11 @@
-﻿using OpcDAToMSA.utils;
+﻿using OpcDAToMSA.Utils;
+using OpcDAToMSA.Services;
 using System;
 using System.Windows.Forms;
 using OpcDAToMSA;
 using Microsoft.Win32;
+using OpcDAToMSA.Configuration;
+using OpcDAToMSA.UI.Forms;
 
 namespace OpcDAToMSA
 {
@@ -17,6 +20,10 @@ namespace OpcDAToMSA
         static void Main()
         {
             LoggerUtil.log.Information("Welcome OpcDaToMSA V2022.12.02");
+            
+            // 初始化依赖注入
+            ApplicationBootstrapper.Initialize();
+            
             /** 
              * 当前用户是管理员的时候，直接启动应用程序 
              * 如果不是管理员，则使用启动对象启动程序，以确保使用管理员身份运行 
@@ -30,13 +37,17 @@ namespace OpcDAToMSA
             if (isAdmin)  
             {
                 //如果是管理员，则直接运行 
-                LoggerUtil.Configuration(Config.GetConfig().Logger);
-                AutoStart(Config.GetConfig().AutoStart);
+                var configService = ApplicationBootstrapper.ServiceProvider.GetService<IConfigurationService>();
+                LoggerUtil.Configuration(configService.GetConfiguration().Logger);
+                AutoStart(configService.GetConfiguration().AutoStart);
                 //创建Windows用户主题 
                 Application.EnableVisualStyles();
                 //在应用程序范围内设置控件显示文本的默认方式(可以设为使用新的GDI+ , 还是旧的GDI)
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new Form1());
+                
+                // 使用依赖注入创建Form1
+                var form1 = ApplicationBootstrapper.ServiceProvider.GetService<Form1>();
+                Application.Run(form1);
             }
             else
             {

@@ -234,42 +234,47 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AboutBox1.cs">
+    <Compile Include="src\UI\Forms\AboutBox1.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="AboutBox1.Designer.cs">
+    <Compile Include="src\UI\Forms\AboutBox1.Designer.cs">
       <DependentUpon>AboutBox1.cs</DependentUpon>
     </Compile>
-    <Compile Include="Config.cs" />
-    <Compile Include="Form1.cs">
+    <Compile Include="src\UI\Forms\Form1.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
+    <Compile Include="src\UI\Forms\Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
-    <Compile Include="Protocols\IProtocolAdapter.cs" />
-    <Compile Include="Protocols\MsaAdapter.cs" />
-    <Compile Include="Protocols\MqttAdapter.cs" />
-    <Compile Include="Protocols\ModbusTcpAdapter.cs" />
-    <Compile Include="Protocols\ProtocolRouter.cs" />
-    <Compile Include="Core\ModbusTcp.cs" />
-    <Compile Include="Core\MsaTcp.cs" />
-    <Compile Include="Core\OpcNet.cs" />
+    <Compile Include="src\DependencyInjection\ServiceContainer.cs" />
+    <Compile Include="src\Configuration\IConfigurationService.cs" />
+    <Compile Include="src\Services\IDataService.cs" />
+    <Compile Include="src\Services\DataService.cs" />
+    <Compile Include="src\Services\ServiceManager.cs" />
+    <Compile Include="src\Monitoring\MonitoringService.cs" />
+    <Compile Include="src\Protocols\ProtocolAdapterFactory.cs" />
+    <Compile Include="src\Protocols\IProtocolAdapter.cs" />
+    <Compile Include="src\Protocols\MsaAdapter.cs" />
+    <Compile Include="src\Protocols\MqttAdapter.cs" />
+    <Compile Include="src\Protocols\ModbusTcpAdapter.cs" />
+    <Compile Include="src\Protocols\ProtocolRouter.cs" />
+    <Compile Include="src\Core\ModbusTcp.cs" />
+    <Compile Include="src\Core\MsaTcp.cs" />
+    <Compile Include="src\Core\OpcNet.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="utils\ConvertUtil.cs" />
-    <Compile Include="utils\HttpClientUtil.cs" />
-    <Compile Include="utils\LoggerUtil.cs" />
+    <Compile Include="src\Utils\HttpClientUtil.cs" />
+    <Compile Include="src\Utils\LoggerUtil.cs" />
     <None Include="OpcDAToMSA_TemporaryKey.pfx" />
     <None Include="Properties\app.manifest" />
     <None Include="Resources\tuichu.png" />
     <None Include="Resources\tingzhi.png" />
     <None Include="Resources\qidong.png" />
     <None Include="Resources\about.png" />
-    <EmbeddedResource Include="AboutBox1.resx">
+    <EmbeddedResource Include="src\UI\Forms\AboutBox1.resx">
       <DependentUpon>AboutBox1.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Form1.resx">
+    <EmbeddedResource Include="src\UI\Forms\Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -283,7 +288,7 @@
       <DesignTime>True</DesignTime>
     </Compile>
     <None Include=".gitignore" />
-    <Content Include="config.json">
+    <Content Include="config\config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="docs\HOLLiAS iComm.chm" />

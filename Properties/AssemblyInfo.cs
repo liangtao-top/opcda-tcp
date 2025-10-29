@@ -8,9 +8,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("OpcDAToMSA")]
 [assembly: AssemblyDescription("OPC DA 协议转 MSA 协议")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("专业工业自动化解决方案提供商")]
 [assembly: AssemblyProduct("OpcDAToMSA")]
-[assembly: AssemblyCopyright("Copyright © 2024")]
+[assembly: AssemblyCopyright("Copyright © 2025")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

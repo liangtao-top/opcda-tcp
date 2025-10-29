@@ -15,9 +15,9 @@ namespace OpcDAToMSA
         public AboutBox1()
         {
             InitializeComponent();
-            this.Text = String.Format("关于 {0}", AssemblyTitle);
-            this.labelProductName.Text = AssemblyProduct;
-            this.labelVersion.Text = String.Format("版本 {0}", AssemblyVersion);
+            this.Text = VersionManager.GenerateAboutTitle();
+            this.labelProductName.Text = VersionManager.APPLICATION_TITLE;
+            this.labelVersion.Text = String.Format("版本 {0}", VersionManager.DisplayVersion);
             this.labelCopyright.Text = AssemblyCopyright;
             this.labelCompanyName.Text = AssemblyCompany;
             //this.textBoxDescription.Text = AssemblyDescription;
@@ -40,6 +40,8 @@ namespace OpcDAToMSA
                 "• 模块化插件架构\r\n\r\n" +
                 "📞 技术支持\r\n" +
                 "专业工业自动化解决方案提供商\r\n\r\n" +
+                "📧 邮箱: liangtao.top@foxmail.com\r\n" +
+                "📱 电话: 17380052002\r\n\r\n" +
                 "© 2025 版权所有";
         }
 

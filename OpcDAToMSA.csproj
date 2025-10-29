@@ -61,10 +61,10 @@
     </StartupObject>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>80A4BC2A9E32C78F6BF4DDC78D780BDDB21CA353</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>8004A53BF901B8FC532D6AC977E4008213FB3BCA</ManifestCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestKeyFile>OpcDAToMSA_TemporaryKey.pfx</ManifestKeyFile>
+    <ManifestKeyFile>OpcDAToMSA_1_TemporaryKey.pfx</ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
     <GenerateManifests>false</GenerateManifests>
@@ -77,7 +77,7 @@
     <TargetZone>LocalIntranet</TargetZone>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>false</SignAssembly>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
     <AssemblyOriginatorKeyFile>OpcDAToMSA_TemporaryKey.pfx</AssemblyOriginatorKeyFile>
@@ -244,6 +244,7 @@
     <Compile Include="utils\ConvertUtil.cs" />
     <Compile Include="utils\HttpClientUtil.cs" />
     <Compile Include="utils\LoggerUtil.cs" />
+    <None Include="OpcDAToMSA_1_TemporaryKey.pfx" />
     <None Include="Properties\app.manifest" />
     <None Include="Resources\tuichu.png" />
     <None Include="Resources\tingzhi.png" />

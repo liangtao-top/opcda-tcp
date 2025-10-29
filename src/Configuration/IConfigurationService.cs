@@ -72,11 +72,6 @@ namespace OpcDAToMSA.Configuration
         public bool FileEnabled { get; set; } = true;
 
         /// <summary>
-        /// 是否启用异步日志
-        /// </summary>
-        public bool AsyncEnabled { get; set; } = true;
-
-        /// <summary>
         /// 异步日志缓冲区大小
         /// </summary>
         public int BufferSize { get; set; } = 1000;
@@ -674,7 +669,6 @@ namespace OpcDAToMSA.Configuration
                     Structured = true,
                     Template = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
                     FileEnabled = true,
-                    AsyncEnabled = true,
                     BufferSize = 1000
                 }
             };

@@ -225,7 +225,12 @@ namespace OpcDAToMSA.Monitoring
 
                 // 执行初始健康检查
                 var initialStatus = healthChecker();
-                healthStatuses[componentName] = initialStatus;
+                
+                // 使用锁保护字典的修改操作
+                lock (healthStatuses)
+                {
+                    healthStatuses[componentName] = initialStatus;
+                }
 
                 LoggerUtil.log.Information($"健康检查组件 {componentName} 已注册，状态：{initialStatus.Status}");
             }
@@ -324,21 +329,28 @@ namespace OpcDAToMSA.Monitoring
         {
             try
             {
-                foreach (var component in healthStatuses.Keys)
+                // 创建字典的副本以避免线程安全问题
+                var componentsToCheck = new Dictionary<string, HealthStatus>(healthStatuses);
+                
+                foreach (var component in componentsToCheck.Keys)
                 {
                     // 这里应该调用注册的健康检查函数
                     // 由于简化实现，我们使用基本的系统检查
                     var status = CheckSystemHealth(component);
                     
-                    if (healthStatuses.ContainsKey(component))
+                    // 使用锁保护字典的修改操作
+                    lock (healthStatuses)
                     {
-                        var oldStatus = healthStatuses[component];
-                        healthStatuses[component] = status;
-
-                        // 如果状态发生变化，触发事件
-                        if (oldStatus.Status != status.Status)
+                        if (healthStatuses.ContainsKey(component))
                         {
-                            OnHealthStatusChanged(new HealthStatusChangedEventArgs(component, oldStatus, status));
+                            var oldStatus = healthStatuses[component];
+                            healthStatuses[component] = status;
+
+                            // 如果状态发生变化，触发事件
+                            if (oldStatus.Status != status.Status)
+                            {
+                                OnHealthStatusChanged(new HealthStatusChangedEventArgs(component, oldStatus, status));
+                            }
                         }
                     }
                 }

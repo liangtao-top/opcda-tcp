@@ -19,7 +19,7 @@ namespace OpcDAToMSA
         [STAThread]
         static void Main()
         {
-            LoggerUtil.log.Information("Welcome OpcDaToMSA V2022.12.02");
+            LoggerUtil.log.Information(VersionManager.GenerateWelcomeMessage());
             
             // 初始化依赖注入
             ApplicationBootstrapper.Initialize();

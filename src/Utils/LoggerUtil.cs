@@ -1,5 +1,6 @@
 ﻿using Serilog.Core;
 using Serilog;
+using Serilog.Sinks.Async;
 using OpcDAToMSA.Configuration;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
@@ -14,16 +15,10 @@ namespace OpcDAToMSA.Utils
             .AddInMemoryCollection(new[] { new KeyValuePair<string, string>("apiKey", "secret-api-key") })
             .Build();
 
-        // 默认日志配置
+        // 日志实例，通过Configuration方法初始化
         public static Logger log = new LoggerConfiguration()
-            .MinimumLevel.Verbose()
+            .MinimumLevel.Information()
             .WriteTo.Console()
-            .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
-            .WriteTo.Http(
-                requestUri: "http://localhost:31137/log-events",
-                queueLimitBytes: null,
-                httpClient: new CustomHttpClient(),
-                configuration: configuration)
             .CreateLogger();
 
         /// <summary>
@@ -37,10 +32,13 @@ namespace OpcDAToMSA.Utils
             // 设置日志级别
             SetLogLevel(loggerConfiguration, conf.Level);
 
+            // 配置异步日志（默认启用）
+            loggerConfiguration.WriteTo.Async(a => { }, bufferSize: conf.BufferSize);
+
             // 配置控制台输出
             if (conf.Console)
             {
-                loggerConfiguration.WriteTo.Console(outputTemplate: conf.Template);
+                loggerConfiguration.WriteTo.Async(a => a.Console(outputTemplate: conf.Template));
             }
 
             // 配置文件输出
@@ -50,11 +48,11 @@ namespace OpcDAToMSA.Utils
             }
 
             // 配置HTTP输出
-            loggerConfiguration.WriteTo.Http(
+            loggerConfiguration.WriteTo.Async(a => a.Http(
                 requestUri: "http://localhost:31137/log-events",
                 queueLimitBytes: null,
                 httpClient: new CustomHttpClient(),
-                configuration: configuration);
+                configuration: configuration));
 
             // 创建新的日志器
             LoggerUtil.log = loggerConfiguration.CreateLogger();
@@ -105,37 +103,37 @@ namespace OpcDAToMSA.Utils
 
             // 主日志文件
             var mainPath = pathConfig.GetFullPath("info");
-            config.WriteTo.File(
+            config.WriteTo.Async(a => a.File(
                 mainPath,
                 outputTemplate: conf.Template,
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: conf.MaxFiles,
                 fileSizeLimitBytes: ParseFileSize(conf.MaxSize),
-                shared: true);
+                shared: true));
 
             // 错误日志文件
             var errorPath = pathConfig.GetFullPath("error");
-            config.WriteTo.File(
+            config.WriteTo.Async(a => a.File(
                 errorPath,
                 restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Error,
                 outputTemplate: conf.Template,
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: conf.MaxFiles,
                 fileSizeLimitBytes: ParseFileSize(conf.MaxSize),
-                shared: true);
+                shared: true));
 
             // 调试日志文件（仅在debug级别时）
             if (conf.Level?.ToLower() == "debug")
             {
                 var debugPath = pathConfig.GetFullPath("debug");
-                config.WriteTo.File(
+                config.WriteTo.Async(a => a.File(
                     debugPath,
                     restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Debug,
                     outputTemplate: conf.Template,
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: conf.MaxFiles,
                     fileSizeLimitBytes: ParseFileSize(conf.MaxSize),
-                    shared: true);
+                    shared: true));
             }
         }
 

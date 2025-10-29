@@ -112,6 +112,21 @@ namespace OpcDAToMSA.Services
             };
         }
 
+        public bool IsRunning => dataService?.IsRunning ?? false;
+
+        public T GetService<T>() where T : class
+        {
+            if (typeof(T) == typeof(IDataService) || typeof(T) == typeof(IOpcDataProvider))
+            {
+                return dataService as T;
+            }
+            if (typeof(T) == typeof(IMonitoringService))
+            {
+                return monitoringService as T;
+            }
+            return null;
+        }
+
         #endregion
     }
 

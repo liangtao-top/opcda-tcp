@@ -111,8 +111,9 @@ namespace OpcDAToMSA.Core
                 }
                 else
                 {
+                    
                     // 远程连接使用构建的URL
-                    url = new URL($"opcda://{config.Opcda.Host}/{config.Opcda.Node}");
+                    url = new URL($@"opcda://{config.Opcda.Host}/{config.Opcda.Node}");
                     LoggerUtil.log.Information($"使用构建的服务器URL: opcda://{config.Opcda.Host}/{config.Opcda.Node}");
                 }
                 
@@ -126,6 +127,8 @@ namespace OpcDAToMSA.Core
                 }
                 else if (isLocalConnection)
                 {
+                    // 本地连接也需要ConnectData，但使用null认证
+                    connectData = new ConnectData(null, null);
                     LoggerUtil.log.Information("使用本地连接，无需认证");
                 }
                 
@@ -137,21 +140,45 @@ namespace OpcDAToMSA.Core
                 try
                 {
                     LoggerUtil.log.Information("正在创建OPC服务器实例...");
-                    server = fact.CreateInstance(url, connectData) as Opc.Da.Server;
+                    server = new Opc.Da.Server(fact, url);
+                    //server = fact.CreateInstance(url, connectData) as Opc.Da.Server;
                     LoggerUtil.log.Information("OPC服务器实例创建成功");
                 }
                 catch (System.Runtime.InteropServices.ExternalException ex)
                 {
-                    LoggerUtil.log.Error(ex, "COM组件创建失败");
-                    LoggerUtil.log.Error("可能的原因:");
-                    LoggerUtil.log.Error("1. OPC服务器进程未运行");
-                    LoggerUtil.log.Error("2. DCOM权限配置问题");
-                    LoggerUtil.log.Error("3. 需要以管理员身份运行");
-                    LoggerUtil.log.Error("4. OPC服务器注册问题");
+                    LoggerUtil.log.Warning($"简化URL连接失败: {ex.Message}");
                     
-                    // 尝试诊断服务器状态
-                    DiagnoseOpcServerStatus();
-                    throw;
+                    // 如果是本地连接且简化URL失败，尝试使用完整URL
+                    if (isLocalConnection && discoveredServerUrl != null)
+                    {
+                        try
+                        {
+                            LoggerUtil.log.Information("尝试使用完整的服务器URL...");
+                            url = discoveredServerUrl;
+                            server = fact.CreateInstance(url, connectData) as Opc.Da.Server;
+                            LoggerUtil.log.Information("使用完整URL连接成功");
+                        }
+                        catch (System.Runtime.InteropServices.ExternalException ex2)
+                        {
+                            LoggerUtil.log.Error(ex2, "完整URL连接也失败");
+                            LoggerUtil.log.Error("COM组件创建失败的可能原因:");
+                            LoggerUtil.log.Error("1. OPC服务器进程未运行");
+                            LoggerUtil.log.Error("2. DCOM权限配置问题");
+                            LoggerUtil.log.Error("3. 需要以管理员身份运行");
+                            LoggerUtil.log.Error("4. OPC服务器注册问题");
+                            throw ex2;
+                        }
+                    }
+                    else
+                    {
+                        LoggerUtil.log.Error(ex, "COM组件创建失败");
+                        LoggerUtil.log.Error("可能的原因:");
+                        LoggerUtil.log.Error("1. OPC服务器进程未运行");
+                        LoggerUtil.log.Error("2. DCOM权限配置问题");
+                        LoggerUtil.log.Error("3. 需要以管理员身份运行");
+                        LoggerUtil.log.Error("4. OPC服务器注册问题");
+                        throw;
+                    }
                 }
                 
                 if (server == null)
@@ -173,7 +200,31 @@ namespace OpcDAToMSA.Core
                 }
                 
                 LoggerUtil.log.Information("正在连接OPC服务器...");
-                server.Connect();
+                LoggerUtil.log.Information($"连接参数 - URL: {url}, ConnectData: {(connectData != null ? "有" : "无")}");
+                
+                // 尝试使用URL和ConnectData连接
+                try
+                {
+                    server.Connect(url, connectData);
+                    LoggerUtil.log.Information("使用URL和ConnectData连接成功");
+                }
+                catch (Exception ex)
+                {
+                    LoggerUtil.log.Warning($"使用URL和ConnectData连接失败: {ex.Message}");
+                    
+                    // 如果失败，尝试直接连接
+                    try
+                    {
+                        LoggerUtil.log.Information("尝试直接连接...");
+                        server.Connect();
+                        LoggerUtil.log.Information("直接连接成功");
+                    }
+                    catch (Exception ex2)
+                    {
+                        LoggerUtil.log.Error($"直接连接也失败: {ex2.Message}");
+                        throw ex2;
+                    }
+                }
 
                 if (server.IsConnected)
                 {

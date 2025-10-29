@@ -199,5 +199,17 @@ namespace OpcDAToMSA.Services
         /// </summary>
         /// <returns>服务状态</returns>
         ServiceStatus GetServiceStatus();
+
+        /// <summary>
+        /// 是否正在运行
+        /// </summary>
+        bool IsRunning { get; }
+
+        /// <summary>
+        /// 获取指定类型的服务
+        /// </summary>
+        /// <typeparam name="T">服务类型</typeparam>
+        /// <returns>服务实例</returns>
+        T GetService<T>() where T : class;
     }
 }

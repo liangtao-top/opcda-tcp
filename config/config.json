@@ -29,10 +29,10 @@
       "description": "Message Queuing Telemetry Transport",
       "version": "3.1.1",
       "settings": {
-        "broker": "mqtt://broker.example.com:1883",
-        "clientId": "opcda-gateway",
-        "username": "mqtt_user",
-        "password": "mqtt_pass",
+        "broker": "mqtt://183.220.17.193:18833",
+        "clientId": "opcda-gateway-1",
+        "username": "kmt",
+        "password": "ZHF@1234.",
         "topics": {
           "data": "opcda/data",
           "status": "opcda/status"
@@ -63,9 +63,9 @@
     }
   },
   "registers": {
-    "OPC的模拟量serveNAOH.02LIA_0701A": "511110066004Q0003QT001",
-    "OPC的模拟量serverHCN.LIC033201": "511110066004Q0004QT001",
-    "OPC的模拟量serverHCN.LI03102": "511110066004G0002YL001"
+    "V4.DPU1001.HW.AI020401.PV": "07TE101A",
+    "V4.DPU1001.HW.AI020402.PV": "07TE101B",
+    "V4.DPU1001.HW.AI020403.PV": "07TE101C"
   },
   "logger": {
     "level": "debug",
@@ -84,7 +84,6 @@
     "structured": true,
     "template": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
     "fileEnabled": true,
-    "asyncEnabled": true,
     "bufferSize": 1000
   },
   "monitoring": {

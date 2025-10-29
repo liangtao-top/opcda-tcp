@@ -37,7 +37,7 @@
           "data": "opcda/data",
           "status": "opcda/status"
         },
-        "qos": 1,
+        "qos": 0,
         "retain": false,
         "cleanSession": true,
         "keepAlive": 60

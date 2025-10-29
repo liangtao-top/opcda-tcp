@@ -1,17 +1,19 @@
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Protocol;
 using Newtonsoft.Json;
 using Opc.Da;
 using OpcDAToMSA.Utils;
 using OpcDAToMSA.Configuration;
 using System;
 using System.Collections.Generic;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace OpcDAToMSA.Protocols
 {
     /// <summary>
-    /// 简化的 MQTT 协议适配器（不依赖 MQTTnet）
+    /// 基于MQTTnet 4.3.7.1207的专业MQTT协议适配器
     /// </summary>
     public class MqttAdapter : IProtocolAdapter
     {
@@ -30,19 +32,25 @@ namespace OpcDAToMSA.Protocols
         /// <summary>
         /// 获取连接状态
         /// </summary>
-        public bool IsConnected => tcpClient?.Connected ?? false;
+        public bool IsConnected => mqttClient?.IsConnected ?? false;
 
         #endregion
 
         #region Private Fields
 
-        private TcpClient tcpClient;
+        private IMqttClient mqttClient;
         private readonly IConfigurationService configurationService;
         private Dictionary<string, object> mqttSettings;
         private string dataTopic;
         private string statusTopic;
         private int qosLevel;
         private bool retainMessages;
+        private string clientId;
+        private string username;
+        private string password;
+        private string brokerHost;
+        private int brokerPort;
+        private bool useTls;
 
         #endregion
 
@@ -92,18 +100,17 @@ namespace OpcDAToMSA.Protocols
                 // 解析 MQTT 配置
                 ParseMqttSettings();
 
-                // 创建 TCP 客户端
-                this.tcpClient = new TcpClient();
+                // 创建 MQTT 客户端
+                var factory = new MqttFactory();
+                this.mqttClient = factory.CreateMqttClient();
 
-                // 解析 Broker 地址和端口
-                var brokerUrl = mqttSettings.ContainsKey("broker") ? mqttSettings["broker"].ToString() : "mqtt://localhost:1883";
-                var host = brokerUrl.Replace("mqtt://", "").Replace("mqtts://", "");
-                var port = brokerUrl.StartsWith("mqtts://") ? 8883 : 1883;
+                // 配置客户端选项
+                var options = CreateMqttClientOptions();
 
                 // 连接到 MQTT Broker
-                await tcpClient.ConnectAsync(host, port);
+                await mqttClient.ConnectAsync(options);
 
-                LoggerUtil.log.Information($"MQTT 适配器连接成功：{host}:{port}");
+                LoggerUtil.log.Information($"MQTT 适配器连接成功：{brokerHost}:{brokerPort}");
                 return true;
             }
             catch (Exception ex)
@@ -133,12 +140,16 @@ namespace OpcDAToMSA.Protocols
                 // 序列化为 JSON
                 var jsonData = JsonConvert.SerializeObject(mqttData, Formatting.None);
 
-                // 创建简单的 MQTT 消息（简化版本）
-                var message = CreateSimpleMqttMessage(dataTopic, jsonData);
+                // 创建 MQTT 消息
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic(dataTopic)
+                    .WithPayload(jsonData)
+                    .WithQualityOfServiceLevel((MqttQualityOfServiceLevel)qosLevel)
+                    .WithRetainFlag(retainMessages)
+                    .Build();
 
                 // 发送消息
-                var stream = tcpClient.GetStream();
-                await stream.WriteAsync(message, 0, message.Length);
+                await mqttClient.PublishAsync(message);
 
                 LoggerUtil.log.Debug($"MQTT 数据发送成功，主题：{dataTopic}，数据点：{data.Length}");
                 return true;
@@ -154,25 +165,25 @@ namespace OpcDAToMSA.Protocols
         /// 断开 MQTT 连接
         /// </summary>
         /// <returns>断开是否成功</returns>
-        public Task<bool> DisconnectAsync()
+        public async Task<bool> DisconnectAsync()
         {
             try
             {
-                if (tcpClient != null && tcpClient.Connected)
+                if (mqttClient != null && mqttClient.IsConnected)
                 {
-                    tcpClient.Close();
+                    await mqttClient.DisconnectAsync();
                 }
 
-                tcpClient?.Dispose();
-                tcpClient = null;
+                mqttClient?.Dispose();
+                mqttClient = null;
 
                 LoggerUtil.log.Information("MQTT 适配器已断开连接");
-                return Task.FromResult(true);
+                return true;
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "MQTT 适配器断开连接失败");
-                return Task.FromResult(false);
+                return false;
             }
         }
 
@@ -198,7 +209,9 @@ namespace OpcDAToMSA.Protocols
                     ["status"] = "opcda/status"
                 },
                 ["qos"] = 1,
-                ["retain"] = false
+                ["retain"] = false,
+                ["cleanSession"] = true,
+                ["keepAlive"] = 60
             };
         }
 
@@ -209,6 +222,39 @@ namespace OpcDAToMSA.Protocols
         {
             try
             {
+                // 解析 Broker 地址和端口
+                var brokerUrl = mqttSettings.ContainsKey("broker") ? mqttSettings["broker"].ToString() : "mqtt://localhost:1883";
+                
+                if (brokerUrl.StartsWith("mqtts://"))
+                {
+                    var url = brokerUrl.Substring(8); // 移除 "mqtts://"
+                    var parts = url.Split(':');
+                    brokerHost = parts[0];
+                    brokerPort = parts.Length > 1 ? int.Parse(parts[1]) : 8883;
+                    useTls = true;
+                }
+                else if (brokerUrl.StartsWith("mqtt://"))
+                {
+                    var url = brokerUrl.Substring(7); // 移除 "mqtt://"
+                    var parts = url.Split(':');
+                    brokerHost = parts[0];
+                    brokerPort = parts.Length > 1 ? int.Parse(parts[1]) : 1883;
+                    useTls = false;
+                }
+                else
+                {
+                    brokerHost = "localhost";
+                    brokerPort = 1883;
+                    useTls = false;
+                }
+
+                // 解析客户端ID
+                clientId = mqttSettings.ContainsKey("clientId") ? mqttSettings["clientId"].ToString() : "opcda-gateway";
+
+                // 解析认证信息
+                username = mqttSettings.ContainsKey("username") ? mqttSettings["username"].ToString() : "";
+                password = mqttSettings.ContainsKey("password") ? mqttSettings["password"].ToString() : "";
+
                 // 解析主题配置
                 if (mqttSettings.ContainsKey("topics") && mqttSettings["topics"] is Dictionary<string, object> topics)
                 {
@@ -227,11 +273,17 @@ namespace OpcDAToMSA.Protocols
                 // 解析保留标志
                 retainMessages = mqttSettings.ContainsKey("retain") ? Convert.ToBoolean(mqttSettings["retain"]) : false;
 
-                LoggerUtil.log.Debug($"MQTT 配置解析完成 - 数据主题：{dataTopic}，QoS：{qosLevel}，保留：{retainMessages}");
+                LoggerUtil.log.Debug($"MQTT 配置解析完成 - Broker: {brokerHost}:{brokerPort}, 客户端ID: {clientId}, 数据主题: {dataTopic}, QoS: {qosLevel}, 保留: {retainMessages}");
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "MQTT 配置解析失败，使用默认值");
+                brokerHost = "localhost";
+                brokerPort = 1883;
+                useTls = false;
+                clientId = "opcda-gateway";
+                username = "";
+                password = "";
                 dataTopic = "opcda/data";
                 statusTopic = "opcda/status";
                 qosLevel = 1;
@@ -240,30 +292,30 @@ namespace OpcDAToMSA.Protocols
         }
 
         /// <summary>
-        /// 创建简单的 MQTT 消息（简化版本）
+        /// 创建 MQTT 客户端选项
         /// </summary>
-        /// <param name="topic">主题</param>
-        /// <param name="payload">载荷</param>
-        /// <returns>消息字节数组</returns>
-        private byte[] CreateSimpleMqttMessage(string topic, string payload)
+        /// <returns>MQTT 客户端选项</returns>
+        private MqttClientOptions CreateMqttClientOptions()
         {
-            // 这是一个简化的 MQTT 消息实现
-            // 在实际应用中，您可能需要实现完整的 MQTT 协议
+            var optionsBuilder = new MqttClientOptionsBuilder()
+                .WithClientId(clientId)
+                .WithTcpServer(brokerHost, brokerPort)
+                .WithCleanSession(true)
+                .WithKeepAlivePeriod(TimeSpan.FromSeconds(60));
 
-            var topicBytes = Encoding.UTF8.GetBytes(topic);
-            var payloadBytes = Encoding.UTF8.GetBytes(payload);
+            // 设置认证信息
+            if (!string.IsNullOrEmpty(username))
+            {
+                optionsBuilder.WithCredentials(username, password);
+            }
 
-            // 简化的消息格式：[长度][主题][载荷]
-            var message = new List<byte>();
+            // 设置 TLS（如果需要）
+            if (useTls)
+            {
+                optionsBuilder.WithTlsOptions(options => { });
+            }
 
-            // 添加主题长度和主题
-            message.AddRange(BitConverter.GetBytes((ushort)topicBytes.Length));
-            message.AddRange(topicBytes);
-
-            // 添加载荷
-            message.AddRange(payloadBytes);
-
-            return message.ToArray();
+            return optionsBuilder.Build();
         }
 
         /// <summary>
@@ -311,7 +363,7 @@ namespace OpcDAToMSA.Protocols
             return new
             {
                 timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                deviceId = mqttSettings.ContainsKey("clientId") ? mqttSettings["clientId"].ToString() : "opcda-gateway",
+                deviceId = clientId,
                 dataPoints = dataPoints
             };
         }

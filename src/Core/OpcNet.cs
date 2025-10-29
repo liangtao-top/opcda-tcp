@@ -35,12 +35,13 @@ namespace OpcDAToMSA.Core
             BrowseFilter = browseFilter.all, // 浏览所有元素
             ElementNameFilter = "",
             MaxElementsReturned = 10000, // 设置最大返回元素数量
-            ReturnAllProperties = false,
+            ReturnAllProperties = true,
             ReturnPropertyValues = true,
             VendorFilter = ""
         };
         private bool runing = true;
         private URL discoveredServerUrl = null;
+        private bool? supportsBrowseTo = null; // 缓存服务器是否支持BROWSE_TO
 
         #endregion
 
@@ -673,46 +674,146 @@ namespace OpcDAToMSA.Core
                     try
                     {
                         var elementName = element.Name;
-                        var elementIdentifier = new ItemIdentifier(elementName);
                         
-                        // 先尝试作为分支递归浏览
+                        // 构建完整路径（用于记录和最终读取）
+                        string fullPath = BuildFullPath(parentPath, elementName);
+                        LoggerUtil.log.Debug($"构建完整路径: '{parentPath}' + '{elementName}' = '{fullPath}'");
+                        
+                        // 检查元素的ItemPath属性（如果可用）
+                        string elementItemPath = element.ItemPath?.ToString() ?? fullPath;
+                        LoggerUtil.log.Debug($"元素ItemPath: {elementItemPath}");
+                        
+                        // 先尝试判断是否是分支
+                        bool isBranch = false;
                         bool browsedAsBranch = false;
+                        bool processedAsItem = false; // 标记是否已作为Item处理
+                        
+                        // 方法1：尝试使用完整路径浏览（支持BROWSE_TO的服务器）
                         try
                         {
+                            var fullPathIdentifier = new ItemIdentifier(fullPath);
                             BrowsePosition testPosition;
-                            var testBrowse = server.Browse(elementIdentifier, browseFilters, out testPosition);
+                            var testBrowse = server.Browse(fullPathIdentifier, browseFilters, out testPosition);
+                            
                             if (testBrowse != null && testBrowse.Length > 0)
                             {
                                 // 可以浏览，说明是分支
-                                LoggerUtil.log.Debug($"发现分支: {elementName}，继续递归浏览...");
-                                BrowseRecursive(elementIdentifier, browseFilters, itemsList, visitedBranches, depth + 1);
+                                isBranch = true;
+                                LoggerUtil.log.Debug($"发现分支(完整路径): {fullPath}，继续递归浏览...");
+                                
+                                // 记录服务器支持BROWSE_TO
+                                if (!supportsBrowseTo.HasValue)
+                                {
+                                    supportsBrowseTo = true;
+                                    LoggerUtil.log.Debug("检测到服务器支持BROWSE_TO功能");
+                                }
+                                
+                                BrowseRecursive(fullPathIdentifier, browseFilters, itemsList, visitedBranches, depth + 1);
                                 browsedAsBranch = true;
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // 浏览失败，可能是Item
+                            // 检查是否是不支持BROWSE_TO的错误
+                            string errorMsg = ex.Message?.ToLower() ?? "";
+                            bool isBrowseToError = errorMsg.Contains("browse_to") || 
+                                                   errorMsg.Contains("not compliant") || 
+                                                   ex.ToString().Contains("BROWSE_TO");
+                            
+                            if (isBrowseToError)
+                            {
+                                LoggerUtil.log.Debug($"服务器不支持BROWSE_TO，使用替代方法判断分支: {elementName}");
+                                
+                                // 记录服务器不支持BROWSE_TO
+                                if (!supportsBrowseTo.HasValue)
+                                {
+                                    supportsBrowseTo = false;
+                                    LoggerUtil.log.Information("检测到服务器不支持BROWSE_TO功能，将使用替代浏览策略");
+                                }
+                                
+                                // 方法2：对于不支持BROWSE_TO的服务器，尝试读取来判断是否是标签
+                                // 如果无法读取，说明可能是分支，但由于不支持BROWSE_TO，我们无法继续浏览
+                                try
+                                {
+                                    // 尝试读取，如果成功说明是标签
+                                    var testItem = new Item(new ItemIdentifier(fullPath));
+                                    var testResult = server.Read(new Item[] { testItem });
+                                    
+                                    if (testResult != null && testResult.Length > 0 && 
+                                        testResult[0].ResultID != null && !testResult[0].ResultID.Failed())
+                                    {
+                                        // 可以读取，说明是Item，不是分支
+                                        isBranch = false;
+                                        LoggerUtil.log.Debug($"元素 '{fullPath}' 可以读取，确定为标签");
+                                        
+                                        // 直接添加为标签
+                                        var item = new Item(new ItemIdentifier(fullPath));
+                                        itemsList.Add(item);
+                                        browsedAsBranch = false; // 标记为已处理
+                                        processedAsItem = true; // 标记已作为Item处理
+                                    }
+                                    else
+                                    {
+                                        // 无法读取，可能是分支，但由于不支持BROWSE_TO，我们无法继续浏览
+                                        LoggerUtil.log.Warning($"元素 '{fullPath}' 无法读取，可能是分支，但服务器不支持BROWSE_TO，将跳过此分支的浏览");
+                                        LoggerUtil.log.Warning($"建议：如果这是分支，请在配置文件中直接指定子标签路径");
+                                    }
+                                }
+                                catch (Exception readEx)
+                                {
+                                    // 读取异常，可能是分支
+                                    string readErrorMsg = readEx.Message?.ToLower() ?? "";
+                                    if (readErrorMsg.Contains("unknown") || readErrorMsg.Contains("item") || readErrorMsg.Contains("invalid"))
+                                    {
+                                        // 很可能是分支，但由于不支持BROWSE_TO，无法继续浏览
+                                        LoggerUtil.log.Warning($"元素 '{fullPath}' 读取失败，可能是分支，但服务器不支持BROWSE_TO，将跳过");
+                                        LoggerUtil.log.Warning($"建议：如果这是分支，请在配置文件中直接指定子标签路径");
+                                    }
+                                    else
+                                    {
+                                        LoggerUtil.log.Debug($"读取异常，无法判断: {fullPath}, 异常: {readEx.Message}");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                LoggerUtil.log.Debug($"完整路径浏览失败: {fullPath}, 异常: {ex.Message}");
+                            }
                         }
                         
-                        // 如果不能作为分支浏览，尝试作为Item
-                        if (!browsedAsBranch)
+                        // 如果不能作为分支浏览且未处理，尝试作为Item读取
+                        if (!browsedAsBranch && !processedAsItem)
                         {
                             try
                             {
-                                var testItem = new Item(elementIdentifier);
+                                var fullPathIdentifier = new ItemIdentifier(fullPath);
+                                var testItem = new Item(fullPathIdentifier);
                                 var testResult = server.Read(new Item[] { testItem });
+                                
                                 if (testResult != null && testResult.Length > 0)
                                 {
-                                    // 可以读取，说明是Item
-                                    var item = new Item(elementIdentifier);
-                                    itemsList.Add(item);
-                                    LoggerUtil.log.Debug($"发现标签: {elementName}");
+                                    // 检查ResultID是否成功
+                                    if (testResult[0].ResultID != null && !testResult[0].ResultID.Failed())
+                                    {
+                                        // 可以读取，说明是Item
+                                        var item = new Item(fullPathIdentifier);
+                                        itemsList.Add(item);
+                                        LoggerUtil.log.Debug($"发现标签: {fullPath}");
+                                        processedAsItem = true;
+                                    }
+                                    else
+                                    {
+                                        LoggerUtil.log.Debug($"读取Item失败(ResultID): {fullPath}, ResultID={testResult[0].ResultID}");
+                                    }
+                                }
+                                else
+                                {
+                                    LoggerUtil.log.Debug($"无法读取为Item(空结果): {fullPath}");
                                 }
                             }
-                            catch
+                            catch (Exception ex)
                             {
-                                // 既不是分支也不是Item，跳过
-                                LoggerUtil.log.Debug($"跳过无法识别的元素: {elementName}");
+                                LoggerUtil.log.Debug($"读取Item失败(异常): {fullPath}, 异常: {ex.Message}");
                             }
                         }
                     }
@@ -726,6 +827,23 @@ namespace OpcDAToMSA.Core
             {
                 LoggerUtil.log.Error(ex, $"递归浏览节点 '{parent.ItemName}' 时发生异常");
             }
+        }
+
+        /// <summary>
+        /// 构建完整路径
+        /// </summary>
+        /// <param name="parentPath">父路径</param>
+        /// <param name="elementName">元素名称</param>
+        /// <returns>完整路径</returns>
+        private string BuildFullPath(string parentPath, string elementName)
+        {
+            if (string.IsNullOrEmpty(parentPath))
+            {
+                return elementName;
+            }
+            
+            // 根据实际路径格式 V4.DPU1001.HW.AI020401.PV，使用 "." 作为分隔符
+            return $"{parentPath}.{elementName}";
         }
 
         private void SetFilterItems()

@@ -1,8 +1,8 @@
 ﻿using Opc;
 using Opc.Da;
-using OpcDAToMSA.Utils;
 using OpcDAToMSA.Configuration;
 using OpcDAToMSA.Services;
+using OpcDAToMSA.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +11,8 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+
+
 
 namespace OpcDAToMSA.Core
 {
@@ -39,6 +40,7 @@ namespace OpcDAToMSA.Core
         };
         private bool runing = true;
         private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
+        private URL discoveredServerUrl = null;
 
         #endregion
 
@@ -68,7 +70,6 @@ namespace OpcDAToMSA.Core
         public OpcNet(IConfigurationService configurationService)
         {
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-            this.GetLocalServers();
         }
 
         #endregion
@@ -85,9 +86,10 @@ namespace OpcDAToMSA.Core
                 LoggerUtil.log.Information($"正在连接OPC服务器: {config.Opcda.Host}/{config.Opcda.Node} ({(isLocalConnection ? "本地" : "远程")}模式)");
                 
                 // 检查本地OPC服务器是否可用
+                URL url;
                 if (isLocalConnection)
                 {
-                    if (!CheckLocalOpcServerAvailable(config.Opcda.Node))
+                    if (!GetLocalServers(config.Opcda.Node))
                     {
                         LoggerUtil.log.Error($"本地OPC服务器 '{config.Opcda.Node}' 不可用");
                         LoggerUtil.log.Error("请检查以下项目:");
@@ -97,10 +99,22 @@ namespace OpcDAToMSA.Core
                         LoggerUtil.log.Error("4. 建议安装 Matrikon OPC Simulation Server 进行测试");
                         return Task.FromResult(false);
                     }
+                    
+                    // 使用发现的服务器URL而不是构建的URL
+                    if (discoveredServerUrl == null)
+                    {
+                        LoggerUtil.log.Error("未发现服务器URL，无法连接");
+                        return Task.FromResult(false);
+                    }
+                    url = discoveredServerUrl;
+                    LoggerUtil.log.Information($"使用发现的服务器URL: {discoveredServerUrl}");
                 }
-                
-                // 构建OPC URL，支持OPC 2.0版本
-                var url = new URL($"opcda://{config.Opcda.Host}/{config.Opcda.Node}");
+                else
+                {
+                    // 远程连接使用构建的URL
+                    url = new URL($"opcda://{config.Opcda.Host}/{config.Opcda.Node}");
+                    LoggerUtil.log.Information($"使用构建的服务器URL: opcda://{config.Opcda.Host}/{config.Opcda.Node}");
+                }
                 
                 // 根据连接类型配置连接数据
                 ConnectData connectData = null;
@@ -116,7 +130,29 @@ namespace OpcDAToMSA.Core
                 }
                 
                 LoggerUtil.log.Information($"创建OPC服务器实例...");
-                server = fact.CreateInstance(url, connectData) as Opc.Da.Server;
+                LoggerUtil.log.Information($"URL: {url}");
+                LoggerUtil.log.Information($"ConnectData: {(connectData != null ? "有认证" : "无认证")}");
+                
+                // 使用RR-OpcNetApi的正确方法创建服务器实例
+                try
+                {
+                    LoggerUtil.log.Information("正在创建OPC服务器实例...");
+                    server = fact.CreateInstance(url, connectData) as Opc.Da.Server;
+                    LoggerUtil.log.Information("OPC服务器实例创建成功");
+                }
+                catch (System.Runtime.InteropServices.ExternalException ex)
+                {
+                    LoggerUtil.log.Error(ex, "COM组件创建失败");
+                    LoggerUtil.log.Error("可能的原因:");
+                    LoggerUtil.log.Error("1. OPC服务器进程未运行");
+                    LoggerUtil.log.Error("2. DCOM权限配置问题");
+                    LoggerUtil.log.Error("3. 需要以管理员身份运行");
+                    LoggerUtil.log.Error("4. OPC服务器注册问题");
+                    
+                    // 尝试诊断服务器状态
+                    DiagnoseOpcServerStatus();
+                    throw;
+                }
                 
                 if (server == null)
                 {
@@ -206,65 +242,6 @@ namespace OpcDAToMSA.Core
                 LoggerUtil.log.Error(ex, "OPC DA 连接失败");
                 OnConnectionStatusChanged(false);
                 return Task.FromResult(false);
-            }
-        }
-
-        /// <summary>
-        /// 检查本地OPC服务器是否可用
-        /// </summary>
-        /// <param name="serverName">服务器名称</param>
-        /// <returns>是否可用</returns>
-        private bool CheckLocalOpcServerAvailable(string serverName)
-        {
-            try
-            {
-                LoggerUtil.log.Information($"检查本地OPC服务器: {serverName}");
-                
-                // 尝试多种连接方式来诊断问题
-                var testUrls = new[]
-                {
-                    $"opcda://localhost/{serverName}",
-                    $"opcda://127.0.0.1/{serverName}",
-                    $"opcda://./{serverName}",
-                    $"opcda://{Environment.MachineName}/{serverName}"
-                };
-                
-                foreach (var testUrl in testUrls)
-                {
-                    try
-                    {
-                        LoggerUtil.log.Information($"尝试连接: {testUrl}");
-                        var url = new URL(testUrl);
-                        var testServer = fact.CreateInstance(url, null) as Opc.Da.Server;
-                        if (testServer != null)
-                        {
-                            LoggerUtil.log.Information($"✅ 服务器 '{serverName}' 在 {testUrl} 可用");
-                            return true;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LoggerUtil.log.Debug($"❌ {testUrl} 连接失败: {ex.Message}");
-                    }
-                }
-                
-                // 如果所有URL都失败，提供详细的诊断信息
-                LoggerUtil.log.Warning($"❌ 所有连接方式都失败，服务器 '{serverName}' 不可用");
-                LoggerUtil.log.Information("🔍 诊断建议:");
-                LoggerUtil.log.Information("1. 确认OPC Client使用的确切服务器名称");
-                LoggerUtil.log.Information("2. 检查OPC Client的连接参数");
-                LoggerUtil.log.Information("3. 尝试以下常见的OPC服务器名称:");
-                LoggerUtil.log.Information("   - Matrikon.OPC.Simulation.1");
-                LoggerUtil.log.Information("   - Kepware.KEPServerEX.V6");
-                LoggerUtil.log.Information("   - OPC.SimaticNET");
-                LoggerUtil.log.Information("   - RSLinx OPC Server");
-                
-                return false;
-                }
-                catch (Exception ex)
-                {
-                LoggerUtil.log.Error(ex, "检查OPC服务器可用性时发生错误");
-                return false;
             }
         }
 
@@ -365,16 +342,64 @@ namespace OpcDAToMSA.Core
             ConnectionStatusChanged?.Invoke(this, isConnected);
         }
 
-        private void GetLocalServers()
+        private bool GetLocalServers(string targetServerName)
         {
             try
             {
+                LoggerUtil.log.Information($"正在扫描本地可用的OPC服务器...");
                 var servers = discovery.GetAvailableServers(Specification.COM_DA_20);
                 LoggerUtil.log.Debug("GetAvailableServers {@servers}, Length: {@Length}", servers, servers.Length);
+                
+                if (servers != null && servers.Length > 0)
+                {
+                    LoggerUtil.log.Information($"发现 {servers.Length} 个可用的OPC服务器:");
+                    foreach (var server in servers)
+                    {
+                        LoggerUtil.log.Information($"  - {server.Name}");
+                        LoggerUtil.log.Debug($"    URL: {server.Url}");
+                    }
+                    
+                    // 检查目标服务器是否在列表中
+                    var foundServer = servers.FirstOrDefault(s => 
+                        s.Name.Equals(targetServerName, StringComparison.OrdinalIgnoreCase) ||
+                        s.Name.ToLower().Contains(targetServerName.ToLower()) ||
+                        targetServerName.ToLower().Contains(s.Name.ToLower()));
+                    
+                    if (foundServer != null)
+                    {
+                        // 保存发现的服务器URL
+                        discoveredServerUrl = foundServer.Url;
+                        LoggerUtil.log.Information($"✅ 找到目标服务器: {foundServer.Name}");
+                        LoggerUtil.log.Information($"   实际服务器名称: {foundServer.Name}");
+                        LoggerUtil.log.Information($"   服务器URL: {foundServer.Url}");
+                        return true;
+                    }
+                    else
+                    {
+                        LoggerUtil.log.Warning($"❌ 未找到目标服务器 '{targetServerName}'");
+                        LoggerUtil.log.Information("可用服务器列表:");
+                        foreach (var server in servers)
+                        {
+                            LoggerUtil.log.Information($"  - {server.Name}");
+                        }
+                        LoggerUtil.log.Information("💡 建议: 请使用上述列表中的确切服务器名称");
+                        return false;
+                    }
+                }
+                else
+                {
+                    LoggerUtil.log.Error("❌ 未发现任何可用的OPC服务器");
+                    LoggerUtil.log.Error("请检查:");
+                    LoggerUtil.log.Error("1. OPC服务器是否已安装并运行");
+                    LoggerUtil.log.Error("2. OPC服务器服务是否启动");
+                    LoggerUtil.log.Error("3. 防火墙是否阻止OPC通信");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "获取本地服务器失败");
+                return false;
             }
         }
 

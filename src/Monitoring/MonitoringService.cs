@@ -359,10 +359,10 @@ namespace OpcDAToMSA.Monitoring
                 // 收集系统指标
                 var process = Process.GetCurrentProcess();
                 
-                UpdateMetric("cpu_usage", process.TotalProcessorTime.TotalMilliseconds, "ms");
-                UpdateMetric("memory_usage", process.WorkingSet64 / 1024.0 / 1024.0, "MB");
-                UpdateMetric("thread_count", process.Threads.Count, "count");
-                UpdateMetric("uptime", (DateTime.Now - process.StartTime).TotalSeconds, "seconds");
+                //UpdateMetric("cpu_usage", process.TotalProcessorTime.TotalMilliseconds, "ms");
+                //UpdateMetric("memory_usage", process.WorkingSet64 / 1024.0 / 1024.0, "MB");
+                //UpdateMetric("thread_count", process.Threads.Count, "count");
+                //UpdateMetric("uptime", (DateTime.Now - process.StartTime).TotalSeconds, "seconds");
 
                 // 触发指标更新事件
                 OnMetricsUpdated(new MetricsUpdatedEventArgs(new Dictionary<string, MetricValue>(metrics)));

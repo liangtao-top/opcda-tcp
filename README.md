@@ -27,16 +27,16 @@
 - **[HOLLiAS iComm.chm](./HOLLiAS%20iComm.chm)** - HOLLiAS iComm帮助文档
 
 ### 🖼️ 配置截图
-- **[dcom-0.png](./dcom-0.png)** - DCOM配置截图 0
-- **[dcom-1.png](./dcom-1.png)** - DCOM配置截图 1
-- **[dcom-2.png](./dcom-2.png)** - DCOM配置截图 2
-- **[dcom-3.png](./dcom-3.png)** - DCOM配置截图 3
-- **[dcom-4.png](./dcom-4.png)** - DCOM配置截图 4
-- **[dcom-5.png](./dcom-5.png)** - DCOM配置截图 5
-- **[dcom-6.png](./dcom-6.png)** - DCOM配置截图 6
-- **[dcom-7.png](./dcom-7.png)** - DCOM配置截图 7
-- **[dcom-8.png](./dcom-8.png)** - DCOM配置截图 8
-- **[dcom-9.png](./dcom-9.png)** - DCOM配置截图 9
+- **![dcom-0.png](docs/dcom-0.png)** - DCOM配置截图 0
+- **![dcom-1.png](docs/dcom-1.png)** - DCOM配置截图 1
+- **![dcom-2.png](docs/dcom-2.png)** - DCOM配置截图 2
+- **![dcom-3.png](docs/dcom-3.png)** - DCOM配置截图 3
+- **![dcom-4.png](docs/dcom-4.png)** - DCOM配置截图 4
+- **![dcom-5.png](docs/dcom-5.png)** - DCOM配置截图 5
+- **![dcom-6.png](docs/dcom-6.png)** - DCOM配置截图 6
+- **![dcom-7.png](docs/dcom-7.png)** - DCOM配置截图 7
+- **![dcom-8.png](docs/dcom-8.png)** - DCOM配置截图 8
+- **![dcom-9.png](docs/dcom-9.png)** - DCOM配置截图 9
 
 ## 📁 文档结构说明
 

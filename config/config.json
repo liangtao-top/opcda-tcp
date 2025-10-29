@@ -2,7 +2,7 @@
   "autoStart": false,
   "opcda": {
     "host": "localhost",
-    "node": "NT6000.eNetOPC.4",
+    "node": "NT6000.eNetOPC",
     "type": "Everyone",
     "username": "",
     "password": ""
@@ -68,7 +68,7 @@
     "OPC的模拟量serverHCN.LI03102": "511110066004G0002YL001"
   },
   "logger": {
-    "level": "info",
+    "level": "debug",
     "path": {
       "rootDirectory": "logs",
       "mainFileName": "application.log",

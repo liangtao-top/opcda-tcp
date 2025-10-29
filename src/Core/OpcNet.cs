@@ -32,9 +32,9 @@ namespace OpcDAToMSA.Core
         private readonly IDiscovery discovery = new OpcCom.ServerEnumerator();
         private readonly BrowseFilters filters = new BrowseFilters
         {
-            BrowseFilter = browseFilter.all,
+            BrowseFilter = browseFilter.all, // 浏览所有元素
             ElementNameFilter = "",
-            MaxElementsReturned = 0,
+            MaxElementsReturned = 10000, // 设置最大返回元素数量
             ReturnAllProperties = false,
             ReturnPropertyValues = true,
             VendorFilter = ""
@@ -233,9 +233,12 @@ namespace OpcDAToMSA.Core
                 if (server.IsConnected)
                 {
                     LoggerUtil.log.Information("OPC服务器连接成功，正在浏览项目...");
-                    BrowsePosition position;
-                    var browseElements = server.Browse(new ItemIdentifier(), filters, out position);
-                    items = browseElements?.Select(be => new Item(new ItemIdentifier(be.Name))).ToList() ?? new List<Item>();
+                    
+                    // 尝试递归浏览所有标签
+                    items = BrowseAllItems(new ItemIdentifier(), filters);
+                    
+                    LoggerUtil.log.Information($"浏览完成，共发现 {items?.Count ?? 0} 个标签");
+                    
                     SetFilterItems();
                     OnConnectionStatusChanged(true);
                     LoggerUtil.log.Information($@"Opc Server {config.Opcda.Host} {config.Opcda.Node} is connected ({(isLocalConnection ? "本地" : "远程")}模式)");
@@ -331,6 +334,7 @@ namespace OpcDAToMSA.Core
                     server = null;
                 }
                 OnConnectionStatusChanged(false);
+                ApplicationEvents.OnOpcConnectionChanged(false, "OPC连接断开");
                 LoggerUtil.log.Information("OPC DA 连接已断开");
                 return Task.FromResult(true);
             }
@@ -351,10 +355,109 @@ namespace OpcDAToMSA.Core
                     return Task.FromResult(new ItemValueResult[0]);
                 }
 
+                // 尝试读取数据，如果失败则尝试不同的标签名称格式
                 var values = server.Read(filterItems.ToArray());
+                
+                // 检查是否有失败的标签
+                bool hasFailedItems = false;
+                if (values != null && values.Length > 0)
+                {
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        if (values[i].ResultID != null && values[i].ResultID.Failed())
+                        {
+                            hasFailedItems = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果有失败的标签，尝试不同的名称格式
+                if (hasFailedItems && values != null && values.Length > 0)
+                {
+                    LoggerUtil.log.Warning("检测到标签读取失败，尝试不同的标签名称格式...");
+                    var alternativeItems = new List<Item>();
+                    
+                    foreach (var originalItem in filterItems)
+                    {
+                        var originalName = originalItem.ItemName.ToString();
+                        
+                        // 尝试不同的格式
+                        var alternativeNames = new[]
+                        {
+                            originalName, // 原始名称
+                            originalName.Replace('.', '/'), // 用 / 替换 .
+                            originalName.Replace('.', '_'), // 用 _ 替换 .
+                            originalName.ToUpper(), // 大写
+                            originalName.ToLower(), // 小写
+                            originalName.Replace("V4.", ""), // 移除 V4. 前缀
+                            originalName.Replace("V4.", "V4/"), // V4. 改为 V4/
+                        };
+                        
+                        bool found = false;
+                        foreach (var altName in alternativeNames)
+                        {
+                            if (altName == originalName) continue; // 跳过原始名称
+                            
+                            try
+                            {
+                                var testItem = new Item(new ItemIdentifier(altName));
+                                var testResult = server.Read(new Item[] { testItem });
+                                
+                                if (testResult != null && testResult.Length > 0 && 
+                                    testResult[0].ResultID != null && !testResult[0].ResultID.Failed())
+                                {
+                                    LoggerUtil.log.Information($"找到替代标签名称: {originalName} -> {altName}");
+                                    alternativeItems.Add(new Item(new ItemIdentifier(altName)));
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            catch
+                            {
+                                // 忽略异常，继续尝试下一个
+                            }
+                        }
+                        
+                        if (!found)
+                        {
+                            LoggerUtil.log.Warning($"未找到标签 '{originalName}' 的有效替代格式");
+                            alternativeItems.Add(originalItem); // 保留原始项
+                        }
+                    }
+                    
+                    // 如果找到了替代项，重新读取
+                    if (alternativeItems.Count > 0 && alternativeItems.Any(i => i.ItemName.ToString() != filterItems.First().ItemName.ToString()))
+                    {
+                        LoggerUtil.log.Debug($"使用替代标签名称重新读取...");
+                        values = server.Read(alternativeItems.ToArray());
+                    }
+                }
+                
                 if (values != null && values.Length > 0)
                 {
                     LoggerUtil.log.Debug($"OPC DA 读取到 {values.Length} 个数据点");
+                    
+                    // 详细记录每个数据点的信息
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        var value = values[i];
+                        LoggerUtil.log.Debug($"数据点[{i}]: ItemName={value.ItemName}, Value={value.Value}, Quality={value.Quality}, Timestamp={value.Timestamp}, ResultID={value.ResultID}");
+                        
+                        // 检查数据质量
+                        if (value.Quality != Opc.Da.Quality.Good)
+                        {
+                            LoggerUtil.log.Warning($"数据点[{i}] {value.ItemName} 质量不佳: {value.Quality}");
+                        }
+                        
+                        // 检查结果ID
+                        if (value.ResultID != null && value.ResultID.Failed())
+                        {
+                            LoggerUtil.log.Warning($"数据点[{i}] {value.ItemName} 读取失败: {value.ResultID}");
+                            LoggerUtil.log.Warning($"建议：请使用OPC客户端工具验证标签名称是否正确。当前尝试的标签: {value.ItemName}");
+                        }
+                    }
+                    
                     return Task.FromResult(values);
                 }
 
@@ -461,21 +564,225 @@ namespace OpcDAToMSA.Core
             }
         }
 
+        /// <summary>
+        /// 递归浏览OPC服务器的所有标签
+        /// </summary>
+        /// <param name="parent">父节点标识</param>
+        /// <param name="browseFilters">浏览过滤器</param>
+        /// <returns>所有发现的标签列表</returns>
+        private List<Item> BrowseAllItems(ItemIdentifier parent, BrowseFilters browseFilters)
+        {
+            var allItems = new List<Item>();
+            var visitedBranches = new HashSet<string>();
+            
+            try
+            {
+                // 首先尝试只浏览分支
+                LoggerUtil.log.Debug("尝试浏览分支...");
+                BrowseRecursive(parent, browseFilters, allItems, visitedBranches, 0);
+                
+                // 如果分支浏览没有找到任何元素，尝试浏览所有元素
+                if (allItems.Count == 0)
+                {
+                    LoggerUtil.log.Debug("分支浏览未找到元素，尝试浏览所有元素...");
+                    var allFilters = new BrowseFilters
+                    {
+                        BrowseFilter = browseFilter.all,
+                        ElementNameFilter = "",
+                        MaxElementsReturned = 1000,
+                        ReturnAllProperties = false,
+                        ReturnPropertyValues = true,
+                        VendorFilter = ""
+                    };
+                    visitedBranches.Clear();
+                    BrowseRecursive(parent, allFilters, allItems, visitedBranches, 0);
+                }
+                
+                // 如果仍然没有找到元素，尝试直接使用配置中的标签
+                if (allItems.Count == 0)
+                {
+                    LoggerUtil.log.Debug("浏览未找到任何元素，尝试直接使用配置中的标签...");
+                    var config = configurationService.GetConfiguration();
+                    var regs = config.Registers;
+                    
+                    if (regs != null && regs.Count > 0)
+                    {
+                        foreach (var reg in regs)
+                        {
+                            try
+                            {
+                                var item = new Item(new ItemIdentifier(reg.Key));
+                                allItems.Add(item);
+                                LoggerUtil.log.Debug($"直接添加配置标签: {reg.Key}");
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerUtil.log.Warning(ex, $"添加配置标签失败: {reg.Key}");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "递归浏览OPC标签时发生异常");
+            }
+            
+            return allItems;
+        }
+
+        /// <summary>
+        /// 递归浏览OPC服务器的分支
+        /// </summary>
+        private void BrowseRecursive(ItemIdentifier parent, BrowseFilters browseFilters, List<Item> itemsList, HashSet<string> visitedBranches, int depth)
+        {
+            try
+            {
+                // 防止无限递归
+                if (depth > 10)
+                {
+                    LoggerUtil.log.Warning($"浏览深度超过10层，停止递归: {parent.ItemName}");
+                    return;
+                }
+
+                string parentPath = parent.ItemName ?? "";
+                if (visitedBranches.Contains(parentPath))
+                {
+                    return; // 避免重复浏览
+                }
+                visitedBranches.Add(parentPath);
+
+                BrowsePosition position;
+                var browseElements = server.Browse(parent, browseFilters, out position);
+
+                LoggerUtil.log.Debug($"浏览节点 '{parentPath}' 返回结果: browseElements={browseElements?.Length ?? 0}, position={position}");
+
+                if (browseElements == null || browseElements.Length == 0)
+                {
+                    if (depth == 0)
+                    {
+                        LoggerUtil.log.Warning($"根节点未发现任何元素 - 浏览过滤器: BrowseFilter={browseFilters.BrowseFilter}, MaxElements={browseFilters.MaxElementsReturned}");
+                    }
+                    return;
+                }
+
+                LoggerUtil.log.Debug($"浏览节点 '{parentPath}' (深度 {depth})，发现 {browseElements.Length} 个元素");
+
+                foreach (var element in browseElements)
+                {
+                    try
+                    {
+                        var elementName = element.Name;
+                        var elementIdentifier = new ItemIdentifier(elementName);
+                        
+                        // 先尝试作为分支递归浏览
+                        bool browsedAsBranch = false;
+                        try
+                        {
+                            BrowsePosition testPosition;
+                            var testBrowse = server.Browse(elementIdentifier, browseFilters, out testPosition);
+                            if (testBrowse != null && testBrowse.Length > 0)
+                            {
+                                // 可以浏览，说明是分支
+                                LoggerUtil.log.Debug($"发现分支: {elementName}，继续递归浏览...");
+                                BrowseRecursive(elementIdentifier, browseFilters, itemsList, visitedBranches, depth + 1);
+                                browsedAsBranch = true;
+                            }
+                        }
+                        catch
+                        {
+                            // 浏览失败，可能是Item
+                        }
+                        
+                        // 如果不能作为分支浏览，尝试作为Item
+                        if (!browsedAsBranch)
+                        {
+                            try
+                            {
+                                var testItem = new Item(elementIdentifier);
+                                var testResult = server.Read(new Item[] { testItem });
+                                if (testResult != null && testResult.Length > 0)
+                                {
+                                    // 可以读取，说明是Item
+                                    var item = new Item(elementIdentifier);
+                                    itemsList.Add(item);
+                                    LoggerUtil.log.Debug($"发现标签: {elementName}");
+                                }
+                            }
+                            catch
+                            {
+                                // 既不是分支也不是Item，跳过
+                                LoggerUtil.log.Debug($"跳过无法识别的元素: {elementName}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LoggerUtil.log.Warning(ex, $"处理浏览元素 '{element.Name}' 时发生异常");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, $"递归浏览节点 '{parent.ItemName}' 时发生异常");
+            }
+        }
+
         private void SetFilterItems()
         {
             var config = configurationService.GetConfiguration();
             var regs = config.Registers;
             filterItems = new List<Item>();
             
+            LoggerUtil.log.Debug($"SetFilterItems 开始 - items数量: {items?.Count ?? 0}, regs数量: {regs?.Count ?? 0}");
+            
+            if (items != null && items.Count > 0)
+            {
+                LoggerUtil.log.Debug($"OPC服务器中的标签列表:");
+                for (int i = 0; i < Math.Min(items.Count, 10); i++) // 只显示前10个
+                {
+                    LoggerUtil.log.Debug($"  [{i}] {items[i].ItemName}");
+                }
+                if (items.Count > 10)
+                {
+                    LoggerUtil.log.Debug($"  ... 还有 {items.Count - 10} 个标签");
+                }
+            }
+            else
+            {
+                LoggerUtil.log.Warning("OPC服务器中未发现任何标签");
+            }
+            
+            if (regs != null && regs.Count > 0)
+            {
+                LoggerUtil.log.Debug($"配置中注册的标签列表:");
+                foreach (var reg in regs)
+                {
+                    LoggerUtil.log.Debug($"  {reg.Key} -> {reg.Value}");
+                }
+            }
+            else
+            {
+                LoggerUtil.log.Warning("配置中未定义任何注册标签");
+            }
+            
             if (regs != null && regs.Count > 0 && items != null)
             {
+                int matchedCount = 0;
                 items.ForEach(item =>
                 {
                     if (regs.ContainsKey(item.ItemName.ToString()))
                     {
                         filterItems.Add(item);
+                        matchedCount++;
+                        LoggerUtil.log.Debug($"匹配成功: {item.ItemName} -> {regs[item.ItemName.ToString()]}");
                     }
                 });
+                LoggerUtil.log.Information($"标签匹配完成 - 总标签: {items.Count}, 配置标签: {regs.Count}, 匹配成功: {matchedCount}");
+            }
+            else
+            {
+                LoggerUtil.log.Warning("无法进行标签匹配 - items或regs为空");
             }
         }
 

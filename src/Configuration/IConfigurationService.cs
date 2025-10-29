@@ -292,6 +292,11 @@ namespace OpcDAToMSA.Configuration
         /// 认证类型 (Everyone, Windows, User)
         /// </summary>
         public string Type { get; set; }
+
+        /// <summary>
+        /// 数据采集间隔（毫秒）
+        /// </summary>
+        public int Interval { get; set; } = 3000;
     }
 
     /// <summary>
@@ -633,7 +638,8 @@ namespace OpcDAToMSA.Configuration
                     Node = "Matrikon.OPC.Simulation.1",
                     Type = "Everyone",
                     Username = "",
-                    Password = ""
+                    Password = "",
+                    Interval = 3000
                 },
                 Protocols = new Dictionary<string, ProtocolConfig>
                 {

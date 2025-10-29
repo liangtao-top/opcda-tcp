@@ -5,6 +5,8 @@ using OpcDAToMSA.Monitoring;
 using OpcDAToMSA.Utils;
 using Opc.Da;
 using System;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpcDAToMSA.Services
@@ -21,6 +23,8 @@ namespace OpcDAToMSA.Services
         private readonly IConfigurationService configurationService;
         private readonly IMonitoringService monitoringService;
         private bool isRunning = false;
+        private CancellationTokenSource collectionCancellationTokenSource;
+        private Task collectionTask;
 
         #endregion
 
@@ -106,6 +110,9 @@ namespace OpcDAToMSA.Services
                 // 触发连接状态变更事件
                 OnConnectionStatusChanged(true);
                 
+                // 启动定时采集循环
+                StartDataCollectionLoop();
+                
                 LoggerUtil.log.Information("OPC DA 数据服务启动成功");
                 return true;
             }
@@ -127,6 +134,9 @@ namespace OpcDAToMSA.Services
                 LoggerUtil.log.Information("停止 OPC DA 数据服务");
 
                 isRunning = false;
+
+                // 停止定时采集循环
+                StopDataCollectionLoop();
 
                 // 停止 OPC DA 客户端
                 await opcProvider.DisconnectAsync();
@@ -212,6 +222,148 @@ namespace OpcDAToMSA.Services
                 LoggerUtil.log.Error(ex, "发送数据失败");
                 monitoringService.UpdateMetric("data_send_errors", 1, "count");
                 return false;
+            }
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        /// <summary>
+        /// 启动数据采集循环
+        /// </summary>
+        private void StartDataCollectionLoop()
+        {
+            try
+            {
+                var config = configurationService.GetConfiguration();
+                int interval = config.Opcda?.Interval ?? 3000;
+
+                // 取消之前的循环（如果存在）
+                StopDataCollectionLoop();
+
+                // 创建新的取消令牌
+                collectionCancellationTokenSource = new CancellationTokenSource();
+                var cancellationToken = collectionCancellationTokenSource.Token;
+
+                // 启动采集任务
+                collectionTask = Task.Run(async () =>
+                {
+                    LoggerUtil.log.Information($"开始定时采集循环，间隔：{interval}ms");
+                    
+                    while (isRunning && !cancellationToken.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            // 检查连接状态
+                            if (!opcProvider.IsConnected)
+                            {
+                                LoggerUtil.log.Warning("OPC DA 未连接，跳过本次采集");
+                                await Task.Delay(interval, cancellationToken);
+                                continue;
+                            }
+
+                            // 读取数据
+                            var data = await ReadDataAsync();
+                            
+                            if (data != null && data.Length > 0)
+                            {
+                                // 发送数据到协议路由器（转发到MQTT等）
+                                await SendDataAsync(data);
+                            }
+                            else
+                            {
+                                LoggerUtil.log.Debug("本次采集未获取到数据");
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // 正常取消，退出循环
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            LoggerUtil.log.Error(ex, "采集循环执行异常，尝试重连");
+                            
+                            // 如果连接断开，尝试重连
+                            if (!opcProvider.IsConnected)
+                            {
+                                try
+                                {
+                                    LoggerUtil.log.Information("尝试重新连接OPC DA服务器...");
+                                    await opcProvider.ConnectAsync();
+                                }
+                                catch (Exception reconnectEx)
+                                {
+                                    LoggerUtil.log.Error(reconnectEx, "重连失败");
+                                }
+                            }
+                        }
+
+                        // 等待指定的间隔时间
+                        if (!cancellationToken.IsCancellationRequested)
+                        {
+                            await Task.Delay(interval, cancellationToken);
+                        }
+                    }
+                    
+                    LoggerUtil.log.Information("定时采集循环已停止");
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "启动数据采集循环失败");
+            }
+        }
+
+        /// <summary>
+        /// 停止数据采集循环
+        /// </summary>
+        private void StopDataCollectionLoop()
+        {
+            try
+            {
+                // 取消循环
+                if (collectionCancellationTokenSource != null)
+                {
+                    collectionCancellationTokenSource.Cancel();
+                    collectionCancellationTokenSource.Dispose();
+                    collectionCancellationTokenSource = null;
+                }
+
+                // 等待任务完成
+                if (collectionTask != null)
+                {
+                    try
+                    {
+                        collectionTask.Wait(TimeSpan.FromSeconds(5));
+                    }
+                    catch (AggregateException ex)
+                    {
+                        // 检查是否只是取消异常，如果是则正常
+                        if (ex.InnerExceptions.All(e => e is TaskCanceledException))
+                        {
+                            LoggerUtil.log.Debug("采集循环已正常取消");
+                        }
+                        else
+                        {
+                            LoggerUtil.log.Warning(ex, "等待采集循环停止时发生异常");
+                        }
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        LoggerUtil.log.Debug("采集循环已正常取消");
+                    }
+                    catch (Exception ex)
+                    {
+                        LoggerUtil.log.Warning(ex, "等待采集循环停止超时");
+                    }
+                    collectionTask = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "停止数据采集循环失败");
             }
         }
 

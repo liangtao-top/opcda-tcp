@@ -5,7 +5,8 @@
     "node": "NT6000.eNetOPC",
     "type": "Everyone",
     "username": "",
-    "password": ""
+    "password": "",
+    "interval": 3000
   },
   "protocols": {
     "msa": {

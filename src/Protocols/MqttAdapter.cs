@@ -337,30 +337,37 @@ namespace OpcDAToMSA.Protocols
             {
                 if (item != null)
                 {
+                    // 记录原始数据值
+                    LoggerUtil.log.Debug($"转换数据点: ItemName={item.ItemName}, Value={item.Value}, ValueType={item.Value?.GetType()?.Name ?? "null"}, Quality={item.Quality}");
+                    
                     // 检查是否在注册表中
                     if (config.Registers.ContainsKey(item.ItemName))
                     {
                         var registerCode = config.Registers[item.ItemName];
-                        dataPoints.Add(new
+                        var dataPoint = new
                         {
                             tag = item.ItemName,
                             code = registerCode,
                             value = item.Value,
                             quality = item.Quality.ToString(),
                             timestamp = item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                        });
+                        };
+                        dataPoints.Add(dataPoint);
+                        LoggerUtil.log.Debug($"添加到MQTT数据: tag={dataPoint.tag}, code={dataPoint.code}, value={dataPoint.value}");
                     }
                     else
                     {
                         // 未注册的数据点也发送，但标记为未注册
-                        dataPoints.Add(new
+                        var dataPoint = new
                         {
                             tag = item.ItemName,
                             code = "UNREGISTERED",
                             value = item.Value,
                             quality = item.Quality.ToString(),
                             timestamp = item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
-                        });
+                        };
+                        dataPoints.Add(dataPoint);
+                        LoggerUtil.log.Debug($"添加到MQTT数据(未注册): tag={dataPoint.tag}, code={dataPoint.code}, value={dataPoint.value}");
                     }
                 }
             }

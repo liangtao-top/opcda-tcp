@@ -65,89 +65,10 @@ namespace OpcDAToMSA.UI.Forms
             this.label1.Focus();
         }
 
-        /// <summary>
-        /// 更新窗口标题和托盘图标文本
-        /// </summary>
-        /// <param name="status">状态描述</param>
-        private void UpdateWindowTitle(string status)
-        {
-            try
-            {
-                var title = VersionManager.GenerateTitle(status);
-                
-                // 更新窗口标题
-                if (this.InvokeRequired)
-                {
-                    this.Invoke(new Action(() => this.Text = title));
-                }
-                else
-                {
-                    this.Text = title;
-                }
-                
-                // 更新托盘图标文本
-                if (notifyIcon1 != null)
-                {
-                    if (this.InvokeRequired)
-                    {
-                        this.Invoke(new Action(() => notifyIcon1.Text = title));
-                    }
-                    else
-                    {
-                        notifyIcon1.Text = title;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LoggerUtil.log.Error(ex, "更新窗口标题失败");
-            }
-        }
-
-        /// <summary>
-        /// 根据服务状态更新标题
-        /// </summary>
-        private void UpdateTitleByServiceStatus()
-        {
-            try
-            {
-                if (serviceManager == null)
-                {
-                    UpdateWindowTitle(VersionManager.STATUS_ERROR);
-                    return;
-                }
-
-                if (serviceManager.IsRunning)
-                {
-                    // 检查OPC连接状态
-                    var opcService = serviceManager.GetService<IOpcDataProvider>();
-                    if (opcService != null && opcService.IsConnected)
-                    {
-                        UpdateWindowTitle(VersionManager.STATUS_RUNNING);
-                    }
-                    else
-                    {
-                        UpdateWindowTitle(VersionManager.STATUS_CONNECTING);
-                    }
-                }
-                else
-                {
-                    UpdateWindowTitle(VersionManager.STATUS_STOPPED);
-                }
-            }
-            catch (Exception ex)
-            {
-                LoggerUtil.log.Error(ex, "更新服务状态标题失败");
-                UpdateWindowTitle(VersionManager.STATUS_ERROR);
-            }
-        }
-
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Form1_ClientHeight = this.ClientSize.Height;
             
-            // 初始化窗口标题
-            UpdateTitleByServiceStatus();
             if (serviceManager != null)
             {
                 // 这里可以通过服务管理器获取配置
@@ -251,9 +172,6 @@ namespace OpcDAToMSA.UI.Forms
             button1.Enabled = false;
             startMenuItem.Enabled = false;
             
-            // 更新标题为连接中状态
-            UpdateWindowTitle(VersionManager.STATUS_CONNECTING);
-            
             // 使用新的服务管理器
             // serviceManager 已经通过构造函数注入
             
@@ -268,22 +186,16 @@ namespace OpcDAToMSA.UI.Forms
                         {
                             okButton.Enabled = true;
                             stopMenuItem.Enabled = true;
-                            // 更新标题为运行中状态
-                            UpdateTitleByServiceStatus();
                         }));
                     }
                     else
                     {
                         LoggerUtil.log.Error("服务启动失败");
-                        // 更新标题为错误状态
-                        this.Invoke(new Action(() => UpdateWindowTitle(VersionManager.STATUS_ERROR)));
                     }
                 }
                 catch (Exception ex)
                 {
                     LoggerUtil.log.Error(ex, "启动服务时发生异常");
-                    // 更新标题为错误状态
-                    this.Invoke(new Action(() => UpdateWindowTitle(VersionManager.STATUS_ERROR)));
                 }
             }));
             thread.Start();
@@ -302,9 +214,6 @@ namespace OpcDAToMSA.UI.Forms
             stopMenuItem.Enabled = false;
             button1.Enabled = true;
             startMenuItem.Enabled = true;
-            
-            // 更新标题为已停止状态
-            UpdateWindowTitle(VersionManager.STATUS_STOPPED);
         }
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
@@ -431,16 +340,6 @@ namespace OpcDAToMSA.UI.Forms
                 }
 
                 LoggerUtil.log.Information($"OPC连接状态变化: {e.IsConnected} - {e.Message}");
-                
-                // 更新UI状态
-                if (e.IsConnected)
-                {
-                    UpdateWindowTitle(VersionManager.STATUS_RUNNING);
-                }
-                else
-                {
-                    UpdateWindowTitle(VersionManager.STATUS_STOPPED);
-                }
             }
             catch (Exception ex)
             {
@@ -485,9 +384,6 @@ namespace OpcDAToMSA.UI.Forms
                 }
 
                 LoggerUtil.log.Information($"服务状态变化: {e.ServiceName} - {e.IsRunning} - {e.Message}");
-                
-                // 更新服务状态相关的UI
-                UpdateTitleByServiceStatus();
             }
             catch (Exception ex)
             {

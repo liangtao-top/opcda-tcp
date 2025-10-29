@@ -74,40 +74,15 @@ namespace OpcDAToMSA.Utils
 
         #endregion
 
-        #region 状态常量
-
-        /// <summary>
-        /// 运行中状态
-        /// </summary>
-        public const string STATUS_RUNNING = "运行中";
-
-        /// <summary>
-        /// 已停止状态
-        /// </summary>
-        public const string STATUS_STOPPED = "已停止";
-
-        /// <summary>
-        /// 连接中状态
-        /// </summary>
-        public const string STATUS_CONNECTING = "连接中";
-
-        /// <summary>
-        /// 错误状态
-        /// </summary>
-        public const string STATUS_ERROR = "错误";
-
-        #endregion
-
         #region 动态标题方法
 
         /// <summary>
-        /// 生成动态标题
+        /// 生成应用程序标题
         /// </summary>
-        /// <param name="status">状态</param>
-        /// <returns>完整标题</returns>
-        public static string GenerateTitle(string status)
+        /// <returns>应用程序标题</returns>
+        public static string GenerateTitle()
         {
-            return $"{ApplicationTitleWithVersion} - {status}";
+            return ApplicationTitleWithVersion;
         }
 
         /// <summary>

@@ -60,7 +60,7 @@ namespace OpcDAToMSA.UI.Forms
             // notifyIcon1
             // 
             this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));
-            this.notifyIcon1.Text = "OPC DA 企业级数据网关 v2.1.0 - 已停止";
+            this.notifyIcon1.Text = OpcDAToMSA.Utils.VersionManager.GenerateTitle();
             this.notifyIcon1.Visible = true;
             this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.NotifyIcon1_MouseDoubleClick);
             // 
@@ -163,7 +163,7 @@ namespace OpcDAToMSA.UI.Forms
             this.KeyPreview = true;
             this.Name = "Form1";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "OPC DA 企业级数据网关 v2.1.0 - 已停止";
+            this.Text = OpcDAToMSA.Utils.VersionManager.GenerateTitle();
             this.Activated += new System.EventHandler(this.Form1_Activated);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Form1_FormClosed);

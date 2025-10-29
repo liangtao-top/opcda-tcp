@@ -208,7 +208,7 @@
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "关于 OPC DA 企业级数据网关";
+            this.Text = OpcDAToMSA.Utils.VersionManager.GenerateAboutTitle();
             this.tableLayoutPanel.ResumeLayout(false);
             this.tableLayoutPanel.PerformLayout();
             this.panel1.ResumeLayout(false);

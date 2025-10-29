@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Threading;
 using OpcDAToMSA.Utils;
+using OpcDAToMSA.Events;
 using Newtonsoft.Json;
 using OpcDAToMSA.Services;
 using System.Linq;
@@ -41,6 +42,9 @@ namespace OpcDAToMSA.UI.Forms
             MainNotifyIcon();
             //设置全局热键
             GlobalHotkey();
+            //订阅应用程序事件
+            SubscribeToApplicationEvents();
+
         }
 
         private void Form1_Activated(object sender, EventArgs e)
@@ -128,7 +132,6 @@ namespace OpcDAToMSA.UI.Forms
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Form1_ClientHeight = this.ClientSize.Height;
-            (new Thread(new ThreadStart(LoggerListen))).Start();
             
             // 初始化窗口标题
             UpdateTitleByServiceStatus();
@@ -151,59 +154,6 @@ namespace OpcDAToMSA.UI.Forms
             }
         }
 
-        #region   日志监听服务
-        private void LoggerListen()
-        {
-            HttpListener listener = new HttpListener();
-            try
-            {
-                listener.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
-                listener.Prefixes.Add($"http://127.0.0.1:31137/");
-                listener.Start();
-            }
-            catch (Exception e)
-            {
-                LoggerUtil.log.Fatal(e, "日志监听服务意外终止");
-                _ = MessageBox.Show(e.Message, "日志监听服务", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Application.Exit();
-                return;
-            }
-            LoggerUtil.log.Information($"Logger Server Listening At http://127.0.0.1:31137");
-            while (true)
-            {
-                //等待请求连接
-                //没有请求则GetContext处于阻塞状态
-                HttpListenerContext ctx = listener.GetContext();
-                if (ctx != null)
-                {
-                    Stream stream = ctx.Request.InputStream;
-                    StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-                    string content = reader.ReadToEnd();
-                    //Console.WriteLine(content);
-                    //Console.WriteLine(ctx.Request.Url.AbsolutePath.ToString());
-                    if (ctx.Request.Url.AbsolutePath.ToString() == "/ui-events")
-                    {
-                        UiEvent body = JsonConvert.DeserializeObject<UiEvent>(content);
-                        UpdateUI(body);
-                    }
-                    else if (ctx.Request.Url.AbsolutePath.ToString() == "/log-events")
-                    {
-                        LogEvent[] body = JsonConvert.DeserializeObject<LogEvent[]>(content);
-                        foreach (var logEvent in body)
-                        {
-                            ShowContent($"{logEvent.Timestamp.ToLocalTime()} [{logEvent.Level}] {logEvent.RenderedMessage}");
-                            if (!string.IsNullOrEmpty(logEvent.Exception))
-                            {
-                                ShowContent(logEvent.Exception);
-                            }
-                        }
-                    }
-                    ctx.Response.StatusCode = 200;//设置返回给客服端http状态代码
-                    ctx.Response.Close();
-                }
-            }
-        }
-
         //委托
         protected delegate void ShowContentDelegate(string content);
 
@@ -217,19 +167,6 @@ namespace OpcDAToMSA.UI.Forms
             }
             this.textBoxDescription.AppendText(content + "\r\n");
         }
-
-        private void UpdateUI(UiEvent content)
-        {
-            if (content.Event == "MSA")
-            {
-                this.label3.Text = content.Data.ToString();
-            }
-            else if (content.Event == "OpcDA")
-            {
-                this.label4.Text = content.Data.ToString();
-            }
-        }
-        #endregion
 
         #region   拦截Windows消息
         protected override void WndProc(ref Message m)
@@ -381,7 +318,7 @@ namespace OpcDAToMSA.UI.Forms
                     aboutBox.Show();
                     break;
                 case Keys.F12:
-                    this.Dispose(true);//清理当前窗体所有正在使用的资源。
+                    this.Close();//关闭窗体
                     Application.Exit();//强制所有消息中止，退出所有的窗体，但是若有托管线程（非主线程），也无法干净地退出；
                     Environment.Exit(0);//这是最彻底的退出方式，不管什么线程都被强制退出，把程序结束的很干净。
                     System.Diagnostics.Process.GetCurrentProcess().Kill();//结束整个进程
@@ -412,7 +349,7 @@ namespace OpcDAToMSA.UI.Forms
             }), Keys.F11));
             cm.Items.Add(new ToolStripMenuItem("退出", Resources.tuichu, new EventHandler(delegate (object sender, EventArgs e)
             {
-                this.Dispose(true);
+                this.Close();
                 Application.Exit();
                 System.Diagnostics.Process.GetCurrentProcess().Kill();
                 Environment.Exit(0);
@@ -440,23 +377,159 @@ namespace OpcDAToMSA.UI.Forms
                 Form1_KeyDown(sender, new KeyEventArgs(Keys.F12));
             });
         }
-    }
 
-    public class LogEvent
-    {
-        public DateTime Timestamp { get; set; }
+        #region 事件订阅
 
-        public string Level { get; set; }
+        /// <summary>
+        /// 订阅应用程序事件
+        /// </summary>
+        private void SubscribeToApplicationEvents()
+        {
+            ApplicationEvents.OpcConnectionChanged += OnOpcConnectionChanged;
+            ApplicationEvents.MsaConnectionChanged += OnMsaConnectionChanged;
+            ApplicationEvents.ServiceStatusChanged += OnServiceStatusChanged;
+            ApplicationEvents.MetricsUpdated += OnMetricsUpdated;
+            ApplicationEvents.LogMessageReceived += OnLogMessageReceived;
+        }
 
-        public string RenderedMessage { get; set; }
+        /// <summary>
+        /// 取消订阅应用程序事件
+        /// </summary>
+        private void UnsubscribeFromApplicationEvents()
+        {
+            ApplicationEvents.OpcConnectionChanged -= OnOpcConnectionChanged;
+            ApplicationEvents.MsaConnectionChanged -= OnMsaConnectionChanged;
+            ApplicationEvents.ServiceStatusChanged -= OnServiceStatusChanged;
+            ApplicationEvents.MetricsUpdated -= OnMetricsUpdated;
+            ApplicationEvents.LogMessageReceived -= OnLogMessageReceived;
+        }
 
-        public string Exception { get; set; }
-    }
+        /// <summary>
+        /// OPC连接状态变化事件处理
+        /// </summary>
+        private void OnOpcConnectionChanged(object sender, OpcConnectionEventArgs e)
+        {
+            try
+            {
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action(() => OnOpcConnectionChanged(sender, e)));
+                    return;
+                }
 
-    public class UiEvent
-    {
-        public string Event { get; set; }
+                LoggerUtil.log.Information($"OPC连接状态变化: {e.IsConnected} - {e.Message}");
+                
+                // 更新UI状态
+                if (e.IsConnected)
+                {
+                    UpdateWindowTitle(VersionManager.STATUS_RUNNING);
+                }
+                else
+                {
+                    UpdateWindowTitle(VersionManager.STATUS_STOPPED);
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "处理OPC连接状态变化事件失败");
+            }
+        }
 
-        public string Data { get; set; }
+        /// <summary>
+        /// MSA连接状态变化事件处理
+        /// </summary>
+        private void OnMsaConnectionChanged(object sender, MsaConnectionEventArgs e)
+        {
+            try
+            {
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action(() => OnMsaConnectionChanged(sender, e)));
+                    return;
+                }
+
+                LoggerUtil.log.Information($"MSA连接状态变化: {e.IsConnected} - {e.Message}");
+                
+                // 可以在这里添加MSA状态相关的UI更新
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "处理MSA连接状态变化事件失败");
+            }
+        }
+
+        /// <summary>
+        /// 服务状态变化事件处理
+        /// </summary>
+        private void OnServiceStatusChanged(object sender, ServiceStatusEventArgs e)
+        {
+            try
+            {
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action(() => OnServiceStatusChanged(sender, e)));
+                    return;
+                }
+
+                LoggerUtil.log.Information($"服务状态变化: {e.ServiceName} - {e.IsRunning} - {e.Message}");
+                
+                // 更新服务状态相关的UI
+                UpdateTitleByServiceStatus();
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "处理服务状态变化事件失败");
+            }
+        }
+
+        /// <summary>
+        /// 系统指标更新事件处理
+        /// </summary>
+        private void OnMetricsUpdated(object sender, MetricsUpdatedEventArgs e)
+        {
+            try
+            {
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action(() => OnMetricsUpdated(sender, e)));
+                    return;
+                }
+
+                LoggerUtil.log.Debug($"系统指标更新: {e.MetricName} = {e.Value} {e.Unit}");
+                
+                // 可以在这里更新系统监控相关的UI
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "处理系统指标更新事件失败");
+            }
+        }
+
+        /// <summary>
+        /// 日志消息接收事件处理
+        /// </summary>
+        private void OnLogMessageReceived(object sender, LogMessageEventArgs e)
+        {
+            try
+            {
+                // 调试信息 - 输出到控制台
+                Console.WriteLine($"Form1: 接收到日志消息: {e.Message}");
+
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action(() => OnLogMessageReceived(sender, e)));
+                    return;
+                }
+
+                ShowContent(e.Message);
+            }
+            catch (Exception ex)
+            {
+                // 避免日志循环，这里不记录日志
+                Console.WriteLine($"处理日志消息事件失败: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

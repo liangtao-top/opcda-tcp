@@ -252,6 +252,7 @@
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
     <Compile Include="src\DependencyInjection\ServiceContainer.cs" />
+    <Compile Include="src\Events\ApplicationEvents.cs" />
     <Compile Include="src\Configuration\IConfigurationService.cs" />
     <Compile Include="src\Services\IDataService.cs" />
     <Compile Include="src\Services\DataService.cs" />

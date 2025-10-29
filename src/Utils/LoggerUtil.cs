@@ -2,6 +2,7 @@
 using Serilog;
 using Serilog.Sinks.Async;
 using OpcDAToMSA.Configuration;
+using OpcDAToMSA.Events;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 using System.IO;
@@ -47,12 +48,8 @@ namespace OpcDAToMSA.Utils
                 ConfigureFileOutput(loggerConfiguration, conf);
             }
 
-            // 配置HTTP输出
-            loggerConfiguration.WriteTo.Async(a => a.Http(
-                requestUri: "http://localhost:31137/log-events",
-                queueLimitBytes: null,
-                httpClient: new CustomHttpClient(),
-                configuration: configuration));
+            // 配置窗体日志输出
+            loggerConfiguration.WriteTo.Sink(new FormLogSink());
 
             // 创建新的日志器
             LoggerUtil.log = loggerConfiguration.CreateLogger();
@@ -172,6 +169,38 @@ namespace OpcDAToMSA.Utils
             }
 
             return 10 * 1024 * 1024; // 默认10MB
+        }
+    }
+
+    /// <summary>
+    /// 窗体日志Sink，将日志发送到窗体显示
+    /// </summary>
+    public class FormLogSink : ILogEventSink
+    {
+        public void Emit(Serilog.Events.LogEvent logEvent)
+        {
+            try
+            {
+                // 格式化日志消息
+                var message = $"{logEvent.Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{logEvent.Level}] {logEvent.RenderMessage()}";
+                
+                // 如果有异常，添加异常信息
+                if (logEvent.Exception != null)
+                {
+                    message += $"\n{logEvent.Exception}";
+                }
+
+                // 调试信息 - 输出到控制台
+                //Console.WriteLine($"FormLogSink: 发送日志消息: {message}");
+
+                // 通过事件发送日志到窗体
+                ApplicationEvents.OnLogMessageReceived(message);
+            }
+            catch (Exception ex)
+            {
+                // 调试信息
+                Console.WriteLine($"FormLogSink: 发送日志失败: {ex.Message}");
+            }
         }
     }
 }

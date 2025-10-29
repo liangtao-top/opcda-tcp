@@ -3,6 +3,7 @@ using Opc.Da;
 using OpcDAToMSA.Configuration;
 using OpcDAToMSA.Services;
 using OpcDAToMSA.Utils;
+using OpcDAToMSA.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -39,7 +40,6 @@ namespace OpcDAToMSA.Core
             VendorFilter = ""
         };
         private bool runing = true;
-        private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
         private URL discoveredServerUrl = null;
 
         #endregion
@@ -235,7 +235,7 @@ namespace OpcDAToMSA.Core
                     SetFilterItems();
                     OnConnectionStatusChanged(true);
                     LoggerUtil.log.Information($@"Opc Server {config.Opcda.Host} {config.Opcda.Node} is connected ({(isLocalConnection ? "本地" : "远程")}模式)");
-                    _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"运行\"}")));
+                    ApplicationEvents.OnOpcConnectionChanged(true, "OPC连接成功");
                     return Task.FromResult(true);
                 }
                 return Task.FromResult(false);
@@ -381,7 +381,7 @@ namespace OpcDAToMSA.Core
             DisconnectAsync().Wait();
             var config = configurationService.GetConfiguration();
             LoggerUtil.log.Information($@"Opc Server {config.Opcda.Host} {config.Opcda.Node} is stop");
-            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"OpcDA\",\"Data\":\"停止\"}")));
+            ApplicationEvents.OnOpcConnectionChanged(false, "OPC连接断开");
         }
 
         #endregion

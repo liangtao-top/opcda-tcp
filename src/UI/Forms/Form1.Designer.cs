@@ -20,6 +20,20 @@ namespace OpcDAToMSA.UI.Forms
             {
                 components.Dispose();
             }
+            
+            // 取消事件订阅
+            if (disposing)
+            {
+                try
+                {
+                    UnsubscribeFromApplicationEvents();
+                }
+                catch
+                {
+                    // 忽略取消订阅时的异常
+                }
+            }
+            
             base.Dispose(disposing);
         }
 

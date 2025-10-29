@@ -10,6 +10,7 @@ using OpcDAToMSA.Configuration;
 using Opc.Da;
 using Newtonsoft.Json;
 using OpcDAToMSA.Utils;
+using OpcDAToMSA.Events;
 using System.IO;
 using Newtonsoft.Json.Linq;
 using OpcDAToMSA.Properties;
@@ -23,7 +24,6 @@ namespace OpcDAToMSA.Core
         private readonly IConfigurationService configurationService;
         private uint uid = 0;
         private bool runing = true;
-        private readonly CustomHttpClient customHttpClient = new CustomHttpClient();
 
         #region Constructor
 
@@ -67,7 +67,7 @@ namespace OpcDAToMSA.Core
         public void Run()
         {
             this.runing = true;
-            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"连接\"}")));
+            ApplicationEvents.OnMsaConnectionChanged(false, "MSA正在连接");
             tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             
             var msaSettings = GetMsaSettings();
@@ -81,7 +81,7 @@ namespace OpcDAToMSA.Core
                 //连接Socket
                 tcpClient.Connect(ep);
                 LoggerUtil.log.Information($@"MSA Server {ip}:{port} is connected");
-                _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"运行\"}")));
+                ApplicationEvents.OnMsaConnectionChanged(true, "MSA连接成功");
                 Task.Run(new Action(() =>
                 {
                     while (runing)
@@ -136,7 +136,7 @@ namespace OpcDAToMSA.Core
             var ip = msaSettings["ip"].ToString();
             var port = System.Convert.ToInt32(msaSettings["port"]);
             LoggerUtil.log.Information($@"MSA Server {ip}:{port} is stop");
-            _ = customHttpClient.PostAsync("http://localhost:31137/ui-events", new MemoryStream(Encoding.UTF8.GetBytes("{\"Event\":\"MSA\",\"Data\":\"停止\"}")));
+            ApplicationEvents.OnMsaConnectionChanged(false, "MSA连接断开");
         }
 
         //接收数据

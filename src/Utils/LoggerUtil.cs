@@ -178,12 +178,37 @@ namespace OpcDAToMSA.Utils
     /// </summary>
     public class FormLogSink : ILogEventSink
     {
+        /// <summary>
+        /// 获取简短的日志级别字符串
+        /// </summary>
+        private static string GetShortLevel(Serilog.Events.LogEventLevel level)
+        {
+            switch (level)
+            {
+                case Serilog.Events.LogEventLevel.Verbose:
+                    return "VRB";
+                case Serilog.Events.LogEventLevel.Debug:
+                    return "DBG";
+                case Serilog.Events.LogEventLevel.Information:
+                    return "INF";
+                case Serilog.Events.LogEventLevel.Warning:
+                    return "WRN";
+                case Serilog.Events.LogEventLevel.Error:
+                    return "ERR";
+                case Serilog.Events.LogEventLevel.Fatal:
+                    return "FTL";
+                default:
+                    return "UNK";
+            }
+        }
+
         public void Emit(Serilog.Events.LogEvent logEvent)
         {
             try
             {
-                // 格式化日志消息
-                var message = $"{logEvent.Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{logEvent.Level}] {logEvent.RenderMessage()}";
+                // 格式化日志消息 - 优化级别显示
+                var levelStr = GetShortLevel(logEvent.Level);
+                var message = $"{logEvent.Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{levelStr}] {logEvent.RenderMessage()}";
                 
                 // 如果有异常，添加异常信息
                 if (logEvent.Exception != null)

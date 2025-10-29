@@ -201,19 +201,33 @@ namespace OpcDAToMSA.UI.Forms
             thread.Start();
         }
 
-        private void StopButton_Click(object sender, EventArgs e)
+        private async void StopButton_Click(object sender, EventArgs e)
         {
-            // 使用新的服务管理器停止服务
-            // 停止服务（使用新的服务管理器）
-            if (serviceManager != null)
+            try
             {
-                serviceManager.StopAllServicesAsync().Wait();
+                // 先禁用按钮，防止重复点击
+                okButton.Enabled = false;
+                stopMenuItem.Enabled = false;
+                
+                // 使用新的服务管理器停止服务
+                if (serviceManager != null)
+                {
+                    await serviceManager.StopAllServicesAsync().ConfigureAwait(true);
+                }
+                
+                // 重新启用启动按钮
+                button1.Enabled = true;
+                startMenuItem.Enabled = true;
             }
-            
-            okButton.Enabled = false;
-            stopMenuItem.Enabled = false;
-            button1.Enabled = true;
-            startMenuItem.Enabled = true;
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "停止服务失败");
+                // 即使失败也要恢复按钮状态
+                okButton.Enabled = false;
+                stopMenuItem.Enabled = false;
+                button1.Enabled = true;
+                startMenuItem.Enabled = true;
+            }
         }
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
@@ -340,6 +354,9 @@ namespace OpcDAToMSA.UI.Forms
                 }
 
                 LoggerUtil.log.Information($"OPC连接状态变化: {e.IsConnected} - {e.Message}");
+                
+                // 更新OPC DA标签显示
+                this.label2.Text = $"OpcDA：{e.IsConnected}";
             }
             catch (Exception ex)
             {
@@ -360,9 +377,10 @@ namespace OpcDAToMSA.UI.Forms
                     return;
                 }
 
-                LoggerUtil.log.Information($"MSA连接状态变化: {e.IsConnected} - {e.Message}");
+                LoggerUtil.log.Information($"Gateway连接状态变化: {e.IsConnected} - {e.Message}");
                 
-                // 可以在这里添加MSA状态相关的UI更新
+                // 更新OPC DA标签显示
+                this.label1.Text = $"GW：{e.IsConnected}";
             }
             catch (Exception ex)
             {

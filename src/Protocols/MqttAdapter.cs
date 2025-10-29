@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Opc.Da;
 using OpcDAToMSA.Utils;
 using OpcDAToMSA.Configuration;
+using OpcDAToMSA.Events;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -111,11 +112,13 @@ namespace OpcDAToMSA.Protocols
                 await mqttClient.ConnectAsync(options);
 
                 LoggerUtil.log.Information($"MQTT 适配器连接成功：{brokerHost}:{brokerPort}");
+                ApplicationEvents.OnMsaConnectionChanged(true, "MQTT连接成功");
                 return true;
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "MQTT 适配器初始化失败");
+                ApplicationEvents.OnMsaConnectionChanged(false, "MQTT连接失败");
                 return false;
             }
         }
@@ -178,11 +181,13 @@ namespace OpcDAToMSA.Protocols
                 mqttClient = null;
 
                 LoggerUtil.log.Information("MQTT 适配器已断开连接");
+                ApplicationEvents.OnMsaConnectionChanged(false, "MQTT连接断开");
                 return true;
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "MQTT 适配器断开连接失败");
+                ApplicationEvents.OnMsaConnectionChanged(false, "MQTT断开连接失败");
                 return false;
             }
         }

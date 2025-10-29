@@ -96,7 +96,7 @@ namespace OpcDAToMSA.UI.Forms
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(53, 18);
             this.label1.TabIndex = 27;
-            this.label1.Text = "MSA：";
+            this.label1.Text = "GW：";
             // 
             // label2
             // 

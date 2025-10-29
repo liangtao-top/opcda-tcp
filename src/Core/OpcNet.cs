@@ -97,6 +97,8 @@ namespace OpcDAToMSA.Core
                         LoggerUtil.log.Error("2. OPC服务器是否正在运行");
                         LoggerUtil.log.Error("3. 服务器名称是否正确");
                         LoggerUtil.log.Error("4. 建议安装 Matrikon OPC Simulation Server 进行测试");
+                        OnConnectionStatusChanged(false);
+                        ApplicationEvents.OnOpcConnectionChanged(false, "OPC服务器不可用");
                         return Task.FromResult(false);
                     }
                     
@@ -104,6 +106,8 @@ namespace OpcDAToMSA.Core
                     if (discoveredServerUrl == null)
                     {
                         LoggerUtil.log.Error("未发现服务器URL，无法连接");
+                        OnConnectionStatusChanged(false);
+                        ApplicationEvents.OnOpcConnectionChanged(false, "未发现服务器URL");
                         return Task.FromResult(false);
                     }
                     url = discoveredServerUrl;
@@ -262,6 +266,7 @@ namespace OpcDAToMSA.Core
                     LoggerUtil.log.Error("3. 网络连接是否正常");
                 }
                 OnConnectionStatusChanged(false);
+                ApplicationEvents.OnOpcConnectionChanged(false, "OPC连接失败");
                 return Task.FromResult(false);
             }
             catch (System.Runtime.InteropServices.ExternalException ex)
@@ -286,12 +291,14 @@ namespace OpcDAToMSA.Core
                     LoggerUtil.log.Error("4. 防火墙是否阻止连接");
                 }
                 OnConnectionStatusChanged(false);
+                ApplicationEvents.OnOpcConnectionChanged(false, "OPC连接失败");
                 return Task.FromResult(false);
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "OPC DA 连接失败");
                 OnConnectionStatusChanged(false);
+                ApplicationEvents.OnOpcConnectionChanged(false, "OPC连接失败");
                 return Task.FromResult(false);
             }
         }

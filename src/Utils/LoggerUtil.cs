@@ -20,6 +20,7 @@ namespace OpcDAToMSA.Utils
         public static Logger log = new LoggerConfiguration()
             .MinimumLevel.Information()
             .WriteTo.Console()
+            .WriteTo.Sink(new FormLogSink())
             .CreateLogger();
 
         /// <summary>

@@ -45,6 +45,19 @@ namespace OpcDAToMSA.UI.Forms
             //订阅应用程序事件
             SubscribeToApplicationEvents();
 
+            // 回放启动阶段缓冲的日志
+            try
+            {
+                var buffered = ApplicationEvents.GetBufferedLogs();
+                if (buffered != null && buffered.Length > 0)
+                {
+                    foreach (var line in buffered)
+                    {
+                        ShowContent(line);
+                    }
+                }
+            }
+            catch { }
         }
 
         private void Form1_Activated(object sender, EventArgs e)

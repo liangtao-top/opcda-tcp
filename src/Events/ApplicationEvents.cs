@@ -7,6 +7,10 @@ namespace OpcDAToMSA.Events
     /// </summary>
     public static class ApplicationEvents
     {
+        // 简单日志缓冲区（启动早期日志在窗体订阅前先入缓冲）
+        private static readonly object _logBufferLock = new object();
+        private static readonly System.Collections.Generic.List<string> _logBuffer = new System.Collections.Generic.List<string>(256);
+        private const int MaxBufferedLogs = 500;
         /// <summary>
         /// OPC连接状态变化事件
         /// </summary>
@@ -69,7 +73,27 @@ namespace OpcDAToMSA.Events
         /// </summary>
         public static void OnLogMessageReceived(string message)
         {
+            // 先写入缓冲，确保在无订阅者时也能保留
+            lock (_logBufferLock)
+            {
+                _logBuffer.Add(message);
+                if (_logBuffer.Count > MaxBufferedLogs)
+                {
+                    _logBuffer.RemoveRange(0, _logBuffer.Count - MaxBufferedLogs);
+                }
+            }
             LogMessageReceived?.Invoke(null, new LogMessageEventArgs(message));
+        }
+
+        /// <summary>
+        /// 获取当前日志缓冲快照
+        /// </summary>
+        public static string[] GetBufferedLogs()
+        {
+            lock (_logBufferLock)
+            {
+                return _logBuffer.ToArray();
+            }
         }
     }
 

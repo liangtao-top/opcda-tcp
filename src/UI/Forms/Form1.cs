@@ -108,10 +108,21 @@ namespace OpcDAToMSA.UI.Forms
             if (logListBox != null) return;
             logListBox = new ListBox();
             logListBox.DrawMode = DrawMode.OwnerDrawFixed;
-            logListBox.ItemHeight = 16;
+            // 使用等宽字体，确保列对齐
+            try
+            {
+                logListBox.Font = new Font("Consolas", 9F);
+            }
+            catch
+            {
+                // 回退到常见等宽字体
+                logListBox.Font = new Font("Courier New", 9F);
+            }
+            // 基于字体动态设置行高，避免上下挤压
+            var lineHeight = TextRenderer.MeasureText("A", logListBox.Font).Height + 2;
+            logListBox.ItemHeight = Math.Max(16, lineHeight);
             logListBox.BackColor = Color.Black;
             logListBox.ForeColor = Color.LightGray;
-            logListBox.Font = new Font("宋体", 9F);
             logListBox.BorderStyle = BorderStyle.None;
             // 容器分区：日志放入中心面板，自动填充
             logListBox.Dock = DockStyle.Fill;

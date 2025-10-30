@@ -69,6 +69,8 @@ namespace OpcDAToMSA.UI.Forms
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Form1_ClientHeight = this.ClientSize.Height;
+            //UpdateBottomPanelHeight();
+            //UpdateBottomPanelLayout();
             
             if (serviceManager != null)
             {
@@ -92,72 +94,105 @@ namespace OpcDAToMSA.UI.Forms
         //委托
         protected delegate void ShowContentDelegate(string content);
 
-        // 日志显示优化相关字段
-        private readonly StringBuilder logBuffer = new StringBuilder();
-        private readonly Queue<string> logLines = new Queue<string>();
-        private const int MaxDisplayLines = 1500;
-        private const int CleanupThreshold = 2000; // 超过此数量时清理
-        private System.Windows.Forms.Timer logUpdateTimer;
-        private readonly object logLock = new object();
+        // 实时日志逐项渲染（ListBox）
+        private ListBox logListBox;
+        private const int MaxDisplayLines = 3000;
+        private const int TrimBlockSize = 100; // 超限时成块裁剪，避免频繁重排
+        private bool autoScrollEnabled = true;
 
         /// <summary>
-        /// 优化的日志显示方法
+        /// 初始化实时日志ListBox
         /// </summary>
-        private void ShowContent(string content)
+        private void EnsureLogList()
         {
-            lock (logLock)
+            if (logListBox != null) return;
+            logListBox = new ListBox();
+            logListBox.DrawMode = DrawMode.OwnerDrawFixed;
+            logListBox.ItemHeight = 16;
+            logListBox.BackColor = Color.Black;
+            logListBox.ForeColor = Color.LightGray;
+            logListBox.Font = new Font("宋体", 9F);
+            logListBox.BorderStyle = BorderStyle.None;
+            // 容器分区：日志放入中心面板，自动填充
+            logListBox.Dock = DockStyle.Fill;
+            logListBox.DrawItem += LogListBox_DrawItem;
+            logListBox.MouseWheel += LogListBox_MouseWheel;
+            logListBox.KeyDown += (s, e) =>
             {
-                // 添加新日志行
-                logLines.Enqueue(content);
-                
-                // 如果超过清理阈值，移除旧行
-                while (logLines.Count > CleanupThreshold)
+                if (e.KeyCode == Keys.End)
                 {
-                    logLines.Dequeue();
+                    autoScrollEnabled = true;
+                    ScrollToBottom();
                 }
-            }
+            };
+            // 添加到中心面板并置顶
+            this.panelCenter.Controls.Add(logListBox);
+            logListBox.BringToFront();
+        }
 
-            // 使用定时器批量更新UI，避免频繁刷新
-            if (logUpdateTimer == null)
+        private void LogListBox_MouseWheel(object sender, MouseEventArgs e)
+        {
+            // 用户滚动则暂停自动滚动；当滚动回到底部再恢复
+            autoScrollEnabled = IsAtBottom();
+        }
+
+        private bool IsAtBottom()
+        {
+            if (logListBox.Items.Count == 0) return true;
+            int visible = Math.Max(1, logListBox.ClientSize.Height / Math.Max(1, logListBox.ItemHeight));
+            return logListBox.TopIndex >= Math.Max(0, logListBox.Items.Count - visible - 1);
+        }
+
+        private void ScrollToBottom()
+        {
+            if (logListBox.Items.Count > 0)
             {
-                logUpdateTimer = new System.Windows.Forms.Timer();
-                logUpdateTimer.Interval = 50; // 50ms更新一次
-                logUpdateTimer.Tick += UpdateLogDisplay;
-            }
-            
-            if (!logUpdateTimer.Enabled)
-            {
-                logUpdateTimer.Start();
+                logListBox.TopIndex = logListBox.Items.Count - 1;
             }
         }
 
-        /// <summary>
-        /// 定时更新日志显示
-        /// </summary>
-        private void UpdateLogDisplay(object sender, EventArgs e)
+        private void LogListBox_DrawItem(object sender, DrawItemEventArgs e)
         {
-            lock (logLock)
+            e.DrawBackground();
+            if (e.Index < 0 || e.Index >= logListBox.Items.Count) return;
+            string text = logListBox.Items[e.Index]?.ToString() ?? string.Empty;
+            // 根据级别着色
+            Color color = Color.LightGray;
+            if (text.Contains("[ERR]")) color = Color.Red;
+            else if (text.Contains("[WRN]")) color = Color.Orange;
+            else if (text.Contains("[DBG]")) color = Color.Gray;
+            else if (text.Contains("[FTL]")) color = Color.DarkRed;
+            else if (text.Contains("[INF]")) color = Color.LightGreen;
+
+            using (var brush = new SolidBrush(color))
             {
-                if (logLines.Count == 0)
-                {
-                    logUpdateTimer.Stop();
-                    return;
-                }
+                e.Graphics.DrawString(text, logListBox.Font, brush, e.Bounds);
+            }
+            e.DrawFocusRectangle();
+        }
 
-                // 批量构建显示内容
-                logBuffer.Clear();
-                var linesToShow = logLines.Skip(Math.Max(0, logLines.Count - MaxDisplayLines)).Take(MaxDisplayLines);
-                foreach (var line in linesToShow)
-                {
-                    logBuffer.AppendLine(line);
-                }
+        
 
-                // 一次性更新UI
-                this.textBoxDescription.Text = logBuffer.ToString();
-                
-                // 自动滚动到底部
-                this.textBoxDescription.SelectionStart = this.textBoxDescription.Text.Length;
-                this.textBoxDescription.ScrollToCaret();
+        /// <summary>
+        /// 逐项追加一条日志
+        /// </summary>
+        private void ShowContent(string content)
+        {
+            EnsureLogList();
+            bool stickToBottom = autoScrollEnabled && IsAtBottom();
+
+            // 容量控制：超过上限成块删除头部
+            if (logListBox.Items.Count >= MaxDisplayLines)
+            {
+                int removeCount = Math.Min(TrimBlockSize, logListBox.Items.Count);
+                for (int i = 0; i < removeCount; i++) logListBox.Items.RemoveAt(0);
+            }
+
+            logListBox.Items.Add(content);
+
+            if (stickToBottom)
+            {
+                ScrollToBottom();
             }
         }
 
@@ -199,10 +234,7 @@ namespace OpcDAToMSA.UI.Forms
             //LoggerUtil.log.Debug("Form1_Resize Form1_ClientHeight: {@Form1_ClientHeight}", this.Form1_ClientHeight);
             var scale = GetScreenScalingFactor();
             //LoggerUtil.log.Debug("Height: {@Height}|{@Height}, {@b}, scale: {@scale}", this.Form1_ClientHeight, this.ClientSize.Height, this.Form1_ClientHeight.Equals(this.ClientSize.Height), scale);
-            if (this.Form1_ClientHeight > 0)
-            {
-                this.textBoxDescription.Size = new Size(this.ClientSize.Width, (int)(this.ClientSize.Height - 40));
-            }
+            // 容器自动布局，无需手动调整日志区域尺寸
         }
 
         [DllImport("gdi32.dll", EntryPoint = "GetDeviceCaps", SetLastError = true)]
@@ -291,16 +323,12 @@ namespace OpcDAToMSA.UI.Forms
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
-            // 清理定时器资源
-            logUpdateTimer?.Stop();
-            logUpdateTimer?.Dispose();
+            // 清理资源（当前无定时器资源需要清理）
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // 清理定时器资源
-            logUpdateTimer?.Stop();
-            logUpdateTimer?.Dispose();
+            // 清理资源（当前无定时器资源需要清理）
         }
 
         private void Form1_KeyDown(object sender, KeyEventArgs e)

@@ -25,6 +25,8 @@ namespace OpcDAToMSA.Services
         private bool isRunning = false;
         private CancellationTokenSource collectionCancellationTokenSource;
         private Task collectionTask;
+        private CancellationTokenSource watchdogCancellationTokenSource;
+        private Task watchdogTask;
 
         #endregion
 
@@ -112,6 +114,8 @@ namespace OpcDAToMSA.Services
                 
                 // 启动定时采集循环
                 StartDataCollectionLoop();
+                // 启动连接状态守护
+                StartConnectionGuardian();
                 
                 LoggerUtil.log.Information("OPC DA 数据服务启动成功");
                 return true;
@@ -137,6 +141,8 @@ namespace OpcDAToMSA.Services
 
                 // 停止定时采集循环
                 StopDataCollectionLoop();
+                // 停止连接状态守护
+                StopConnectionGuardian();
 
                 // 停止 OPC DA 客户端
                 await opcProvider.DisconnectAsync();
@@ -364,6 +370,99 @@ namespace OpcDAToMSA.Services
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "停止数据采集循环失败");
+            }
+        }
+
+        /// <summary>
+        /// 启动连接状态守护：周期检查断线并重连（带简单退避）
+        /// </summary>
+        private void StartConnectionGuardian()
+        {
+            try
+            {
+                // 取消旧的
+                StopConnectionGuardian();
+
+                watchdogCancellationTokenSource = new CancellationTokenSource();
+                var token = watchdogCancellationTokenSource.Token;
+                int baseDelayMs = 2000; // 起始退避
+                int maxDelayMs = 15000; // 上限
+
+                watchdogTask = Task.Run(async () =>
+                {
+                    while (isRunning && !token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            if (!opcProvider.IsConnected)
+                            {
+                                monitoringService.UpdateMetric("opcda_connected", 0, "bool");
+                                LoggerUtil.log.Warning("连接守护检测到 OPC 未连接，尝试重连...");
+                                try
+                                {
+                                    var ok = await opcProvider.ConnectAsync();
+                                    monitoringService.UpdateMetric("opcda_reconnect_attempt", 1, "count");
+                                    if (ok)
+                                    {
+                                        LoggerUtil.log.Information("OPC 重连成功");
+                                        monitoringService.UpdateMetric("opcda_connected", 1, "bool");
+                                        baseDelayMs = 2000; // 成功后重置退避
+                                    }
+                                    else
+                                    {
+                                        LoggerUtil.log.Warning("OPC 重连失败");
+                                        baseDelayMs = Math.Min(baseDelayMs * 2, maxDelayMs);
+                                    }
+                                }
+                                catch (Exception rex)
+                                {
+                                    LoggerUtil.log.Error(rex, "OPC 重连异常");
+                                    baseDelayMs = Math.Min(baseDelayMs * 2, maxDelayMs);
+                                }
+                            }
+                            else
+                            {
+                                monitoringService.UpdateMetric("opcda_connected", 1, "bool");
+                                baseDelayMs = 2000;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            LoggerUtil.log.Error(ex, "连接守护执行异常");
+                        }
+
+                        try { await Task.Delay(baseDelayMs, token); } catch { }
+                    }
+                }, token);
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "启动连接状态守护失败");
+            }
+        }
+
+        /// <summary>
+        /// 停止连接状态守护
+        /// </summary>
+        private void StopConnectionGuardian()
+        {
+            try
+            {
+                if (watchdogCancellationTokenSource != null)
+                {
+                    watchdogCancellationTokenSource.Cancel();
+                    watchdogCancellationTokenSource.Dispose();
+                    watchdogCancellationTokenSource = null;
+                }
+                if (watchdogTask != null)
+                {
+                    try { watchdogTask.Wait(TimeSpan.FromSeconds(3)); } catch { }
+                    watchdogTask = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, "停止连接状态守护失败");
             }
         }
 

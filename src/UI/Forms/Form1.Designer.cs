@@ -89,7 +89,7 @@ namespace OpcDAToMSA.UI.Forms
             this.tabPageLog.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageLog.Size = new System.Drawing.Size(525, 249);
             this.tabPageLog.TabIndex = 0;
-            this.tabPageLog.Text = "日志";
+            this.tabPageLog.Text = "运行日志";
             this.tabPageLog.UseVisualStyleBackColor = true;
             // 
             // tabPagePoints
@@ -99,7 +99,7 @@ namespace OpcDAToMSA.UI.Forms
             this.tabPagePoints.Padding = new System.Windows.Forms.Padding(0);
             this.tabPagePoints.Size = new System.Drawing.Size(525, 249);
             this.tabPagePoints.TabIndex = 1;
-            this.tabPagePoints.Text = "点位";
+            this.tabPagePoints.Text = "点位视图";
             this.tabPagePoints.UseVisualStyleBackColor = false;
             this.tabPagePoints.BackColor = System.Drawing.Color.Transparent;
             // 
@@ -110,7 +110,7 @@ namespace OpcDAToMSA.UI.Forms
             this.tabPageMonitor.Padding = new System.Windows.Forms.Padding(3);
             this.tabPageMonitor.Size = new System.Drawing.Size(525, 249);
             this.tabPageMonitor.TabIndex = 2;
-            this.tabPageMonitor.Text = "监测";
+            this.tabPageMonitor.Text = "系统监控";
             this.tabPageMonitor.UseVisualStyleBackColor = false;
             this.tabPageMonitor.BackColor = System.Drawing.Color.Transparent;
             // 

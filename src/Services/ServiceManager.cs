@@ -7,6 +7,7 @@ using OpcDAToMSA.DependencyInjection;
 using OpcDAToMSA.Utils;
 using OpcDAToMSA.UI.Forms;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using IServiceProvider = OpcDAToMSA.DependencyInjection.IServiceProvider;
 using OpcDAToMSA.Observability;
@@ -26,6 +27,7 @@ namespace OpcDAToMSA.Services
         // private IMonitoringService monitoringService;
         private MonitoringHost monitoringHost;
         private bool opcAttached = false;
+        private readonly HashSet<string> attachedAdapters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         #endregion
 
@@ -63,13 +65,51 @@ namespace OpcDAToMSA.Services
                 // 附加OPC监控（仅在首次启动时附加一次）
                 if (!opcAttached && monitoringHost != null)
                 {
-                    monitoringHost.AttachOpc("opc", () => opcProvider.IsConnected, async () => await opcProvider.ConnectAsync());
+                    monitoringHost.AttachOpc("OPC", () => opcProvider.IsConnected, async () => await opcProvider.ConnectAsync());
                     opcAttached = true;
                 }
+
+                // 基于配置的启用协议列表，附加协议监控（即使初始化失败也纳入重连与指标）
+                try
+                {
+                    var cfg = configurationService.GetConfiguration();
+                    if (cfg?.Protocols != null)
+                    {
+                        foreach (var kv in cfg.Protocols)
+                        {
+                            var key = kv.Key;               // 配置键：mqtt / modbusTcp / msa
+                            var enabled = kv.Value?.Enabled == true;
+                            if (!enabled) continue;
+
+                            // 将配置键映射为路由器中的协议名
+                            var protoName = ProtocolNameMapper.MapProtocolName(key);
+                            if (string.IsNullOrEmpty(protoName)) continue;
+                            if (attachedAdapters.Contains(protoName)) continue;
+
+                            monitoringHost.AttachAdapter(protoName,
+                                () =>
+                                {
+                                    try
+                                    {
+                                        var map = protocolRouter.GetProtocolStatus();
+                                        bool connected;
+                                        return map.TryGetValue(protoName, out connected) && connected;
+                                    }
+                                    catch { return false; }
+                                },
+                                async () => await protocolRouter.ReconnectAsync(protoName));
+
+                            attachedAdapters.Add(protoName);
+                        }
+                    }
+                }
+                catch { }
 
                 if (result)
                 {
                     LoggerUtil.log.Information("所有服务启动成功");
+                    // 启动成功，恢复重连
+                    monitoringHost?.ResumeReconnect();
                 }
                 else
                 {
@@ -90,6 +130,8 @@ namespace OpcDAToMSA.Services
             try
             {
                 LoggerUtil.log.Information("停止所有服务");
+                // 停止时暂停自动重连，但保留系统监控运行
+                monitoringHost?.PauseReconnect();
 
                 // 停止数据服务
                 if (dataService != null)
@@ -137,6 +179,22 @@ namespace OpcDAToMSA.Services
         }
 
         #endregion
+    }
+
+    internal static class ProtocolNameMapper
+    {
+        public static string MapProtocolName(string configKey)
+        {
+            if (string.IsNullOrWhiteSpace(configKey)) return null;
+            switch (configKey.Trim().ToLowerInvariant())
+            {
+                case "mqtt": return "MQTT";
+                case "modbusTcp":
+                case "modbustcp": return "Modbus TCP";
+                case "msa": return "MSA";
+                default: return configKey; // 兜底：已是显示名或第三方自定义
+            }
+        }
     }
 
     /// <summary>

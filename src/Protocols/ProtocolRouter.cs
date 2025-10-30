@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace OpcDAToMSA.Protocols
 {
@@ -228,6 +229,52 @@ namespace OpcDAToMSA.Protocols
         public Dictionary<string, bool> GetProtocolStatus()
         {
             return adapters.ToDictionary(a => a.ProtocolName, a => a.IsConnected);
+        }
+
+        /// <summary>
+        /// 尝试获取指定协议适配器
+        /// </summary>
+        public bool TryGetAdapter(string name, out IProtocolAdapter adapter)
+        {
+            adapter = adapters.FirstOrDefault(a => string.Equals(a.ProtocolName, name, StringComparison.OrdinalIgnoreCase));
+            return adapter != null;
+        }
+
+        /// <summary>
+        /// 对指定协议执行一次重连（断开后重新初始化）
+        /// </summary>
+        public async Task<bool> ReconnectAsync(string name)
+        {
+            if (!isInitialized) return false;
+            if (!TryGetAdapter(name, out var adapter)) return false;
+            try
+            {
+                LoggerUtil.log.Warning($"协议 {name} 开始重连…");
+                await adapter.DisconnectAsync();
+                LoggerUtil.log.Debug($"协议 {name} 已断开，准备重新初始化");
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, $"协议 {name} 断开阶段异常");
+            }
+            try
+            {
+                var ok = await adapter.InitializeAsync();
+                if (ok)
+                {
+                    LoggerUtil.log.Information($"协议 {name} 重连成功");
+                }
+                else
+                {
+                    LoggerUtil.log.Warning($"协议 {name} 重连失败");
+                }
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, $"协议 {name} 重连异常");
+                return false;
+            }
         }
 
         /// <summary>

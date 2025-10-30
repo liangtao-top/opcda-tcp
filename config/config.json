@@ -30,7 +30,7 @@
       "description": "Message Queuing Telemetry Transport",
       "version": "3.1.1",
       "settings": {
-        "broker": "mqtt://183.220.17.193:18833",
+        "broker": "mqtt://183.220.17.193:28833",
         "clientId": "opcda-gateway-1",
         "username": "kmt",
         "password": "ZHF@1234.",

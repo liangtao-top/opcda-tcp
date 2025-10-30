@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OpcDAToMSA.Utils;
 
 namespace OpcDAToMSA.Observability
 {
@@ -24,6 +25,97 @@ namespace OpcDAToMSA.Observability
         DateTime LastOk { get; }
         Task TickAsync(bool allowReconnect, CancellationToken token);
         void RecordOk();
+    }
+
+    internal class AdapterMonitor : IConnectionMonitor
+    {
+        private readonly Func<bool> isConnected;
+
+        public AdapterMonitor(string name, Func<bool> isConnected)
+        {
+            this.Name = name;
+            this.isConnected = isConnected ?? throw new ArgumentNullException(nameof(isConnected));
+        }
+
+        public string Name { get; }
+        public bool IsConnected => isConnected();
+        public DateTime LastOk { get; private set; } = DateTime.MinValue;
+
+        public Task TickAsync(bool allowReconnect, CancellationToken token)
+        {
+            if (IsConnected)
+            {
+                LastOk = DateTime.Now;
+            }
+            return Task.CompletedTask;
+        }
+
+        public void RecordOk()
+        {
+            LastOk = DateTime.Now;
+        }
+    }
+
+    internal class AdapterReconnectMonitor : IConnectionMonitor
+    {
+        private readonly Func<bool> isConnected;
+        private readonly Func<Task<bool>> reconnectAsync;
+        private int backoffMs = 2000;
+        private readonly int maxBackoffMs = 15000;
+        public int ReconnectAttempts { get; private set; } = 0;
+
+        public AdapterReconnectMonitor(string name, Func<bool> isConnected, Func<Task<bool>> reconnectAsync)
+        {
+            this.Name = name;
+            this.isConnected = isConnected ?? throw new ArgumentNullException(nameof(isConnected));
+            this.reconnectAsync = reconnectAsync ?? throw new ArgumentNullException(nameof(reconnectAsync));
+        }
+
+        public string Name { get; }
+        public bool IsConnected => isConnected();
+        public DateTime LastOk { get; private set; } = DateTime.MinValue;
+
+        public async Task TickAsync(bool allowReconnect, CancellationToken token)
+        {
+            if (IsConnected)
+            {
+                LastOk = DateTime.Now;
+                backoffMs = 2000;
+                return;
+            }
+            if (!allowReconnect)
+            {
+                return;
+            }
+            try
+            {
+                LoggerUtil.log.Warning($"协议 {Name} 连接断开，开始重连（第{ReconnectAttempts + 1}次，backoff={backoffMs}ms）");
+                ReconnectAttempts++;
+                var ok = await reconnectAsync().ConfigureAwait(false);
+                if (ok)
+                {
+                    LastOk = DateTime.Now;
+                    backoffMs = 2000;
+                    LoggerUtil.log.Information($"协议 {Name} 重连成功（累计尝试 {ReconnectAttempts} 次）");
+                }
+                else
+                {
+                    backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
+                    LoggerUtil.log.Warning($"协议 {Name} 重连失败，退避至 {backoffMs}ms");
+                }
+            }
+            catch
+            {
+                backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
+                LoggerUtil.log.Warning($"协议 {Name} 重连异常，退避至 {backoffMs}ms");
+            }
+            try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
+        }
+
+        public void RecordOk()
+        {
+            LastOk = DateTime.Now;
+        }
     }
 
     public class OpcMonitor : IConnectionMonitor
@@ -59,21 +151,25 @@ namespace OpcDAToMSA.Observability
             }
             try
             {
+                LoggerUtil.log.Warning($"协议 {Name} 连接断开，开始重连（第{ReconnectAttempts + 1}次，backoff={backoffMs}ms）");
                 ReconnectAttempts++;
                 var ok = await reconnectAsync().ConfigureAwait(false);
                 if (ok)
                 {
                     LastOk = DateTime.Now;
                     backoffMs = 2000;
+                    LoggerUtil.log.Information($"协议 {Name} 重连成功（累计尝试 {ReconnectAttempts} 次）");
                 }
                 else
                 {
                     backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
+                    LoggerUtil.log.Warning($"协议 {Name} 重连失败，退避至 {backoffMs}ms");
                 }
             }
             catch
             {
                 backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
+                LoggerUtil.log.Warning($"协议 {Name} 重连异常，退避至 {backoffMs}ms");
             }
             try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
         }
@@ -154,6 +250,7 @@ namespace OpcDAToMSA.Observability
         private CancellationTokenSource cts;
 
         public bool IsRunning { get; private set; }
+        private volatile bool reconnectPaused = false;
 
         public event EventHandler<IDictionary<string, MetricValue>> MetricsPushed;
 
@@ -184,6 +281,16 @@ namespace OpcDAToMSA.Observability
             monitors.Add(new OpcMonitor(name, isConnected, reconnectAsync));
         }
 
+        public void AttachAdapter(string name, Func<bool> isConnected)
+        {
+            monitors.Add(new AdapterMonitor(name, isConnected));
+        }
+
+        public void AttachAdapter(string name, Func<bool> isConnected, Func<Task<bool>> reconnectAsync)
+        {
+            monitors.Add(new AdapterReconnectMonitor(name, isConnected, reconnectAsync));
+        }
+
         private void DoSample()
         {
             var snap = sampler.Sample();
@@ -212,6 +319,16 @@ namespace OpcDAToMSA.Observability
                         Timestamp = DateTime.Now
                     };
                 }
+                if (m is AdapterReconnectMonitor arm)
+                {
+                    metrics[$"{m.Name}.reconnect.count"] = new MetricValue
+                    {
+                        Name = $"{m.Name}.reconnect.count",
+                        Value = arm.ReconnectAttempts,
+                        Unit = "count",
+                        Timestamp = DateTime.Now
+                    };
+                }
             }
         }
 
@@ -227,11 +344,21 @@ namespace OpcDAToMSA.Observability
             {
                 foreach (var m in monitors)
                 {
-                    try { await m.TickAsync(allowReconnect: IsRunning, token).ConfigureAwait(false); }
+                    try { await m.TickAsync(allowReconnect: IsRunning && !reconnectPaused, token).ConfigureAwait(false); }
                     catch { }
                 }
                 try { await Task.Delay(1000, token).ConfigureAwait(false); } catch { }
             }
+        }
+
+        public void PauseReconnect()
+        {
+            reconnectPaused = true;
+        }
+
+        public void ResumeReconnect()
+        {
+            reconnectPaused = false;
         }
     }
 }

@@ -253,6 +253,7 @@ namespace OpcDAToMSA.UI.Forms
         private System.Windows.Forms.TabPage tabPageLog;
         private System.Windows.Forms.TabPage tabPagePoints;
         private System.Windows.Forms.TabPage tabPageMonitor;
+        
     }
 }
 

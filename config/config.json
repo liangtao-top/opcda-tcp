@@ -107,30 +107,5 @@
     "template": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
     "fileEnabled": true,
     "bufferSize": 1000
-  },
-  "monitoring": {
-    "enabled": false,
-    "healthCheckInterval": 30000,
-    "metricsInterval": 10000,
-    "alerts": {
-      "connectionTimeout": 5000,
-      "dataLossThreshold": 10,
-      "memoryUsageThreshold": 80.0,
-      "cpuUsageThreshold": 80.0,
-      "emailAlerts": false,
-      "email": {
-        "smtpServer": "",
-        "smtpPort": 587,
-        "username": "",
-        "password": "",
-        "fromAddress": "",
-        "toAddresses": []
-      }
-    },
-    "performance": {
-      "maxResponseTime": 1000,
-      "maxDataProcessingDelay": 500,
-      "minThroughput": 10
-    }
   }
 }

@@ -1,7 +1,7 @@
 using OpcDAToMSA.Core;
 using OpcDAToMSA.Protocols;
 using OpcDAToMSA.Configuration;
-using OpcDAToMSA.Monitoring;
+// using OpcDAToMSA.Monitoring;
 using OpcDAToMSA.Utils;
 using Opc.Da;
 using System;
@@ -21,7 +21,7 @@ namespace OpcDAToMSA.Services
         private readonly IOpcDataProvider opcProvider;
         private readonly IProtocolRouter protocolRouter;
         private readonly IConfigurationService configurationService;
-        private readonly IMonitoringService monitoringService;
+        // private readonly IMonitoringService monitoringService;
         private bool isRunning = false;
         private CancellationTokenSource collectionCancellationTokenSource;
         private Task collectionTask;
@@ -32,12 +32,11 @@ namespace OpcDAToMSA.Services
 
         #region Constructor
 
-        public OpcDataService(IOpcDataProvider opcProvider, IProtocolRouter protocolRouter, IConfigurationService configurationService, IMonitoringService monitoringService)
+        public OpcDataService(IOpcDataProvider opcProvider, IProtocolRouter protocolRouter, IConfigurationService configurationService)
         {
             this.opcProvider = opcProvider ?? throw new ArgumentNullException(nameof(opcProvider));
             this.protocolRouter = protocolRouter ?? throw new ArgumentNullException(nameof(protocolRouter));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-            this.monitoringService = monitoringService ?? throw new ArgumentNullException(nameof(monitoringService));
         }
 
         #endregion
@@ -95,17 +94,7 @@ namespace OpcDAToMSA.Services
                     return false;
                 }
 
-                // 注册健康检查
-                monitoringService.RegisterHealthCheck("opcda", () => new Monitoring.HealthStatus
-                {
-                    ComponentName = "opcda",
-                    Status = opcProvider.IsConnected ? Monitoring.HealthStatusType.Healthy : Monitoring.HealthStatusType.Unhealthy,
-                    Timestamp = DateTime.Now,
-                    Details = new System.Collections.Generic.Dictionary<string, object>
-                    {
-                        ["connected"] = opcProvider.IsConnected
-                    }
-                });
+                // 监测服务已移除：健康检查注册不再执行
 
                 isRunning = true;
                 
@@ -180,16 +169,14 @@ namespace OpcDAToMSA.Services
                 // 读取 OPC DA 数据
                 var data = await opcProvider.ReadDataAsync();
                 
-                // 更新监控指标
-                monitoringService.UpdateMetric("opcda_read_count", 1, "count");
-                monitoringService.UpdateMetric("opcda_last_read", DateTime.Now.Ticks, "ticks");
+                // 监测服务已移除：指标上报不再执行
 
                 return data;
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "读取 OPC DA 数据失败");
-                monitoringService.UpdateMetric("opcda_read_errors", 1, "count");
+                // 监测服务已移除
                 return new ItemValueResult[0];
             }
         }
@@ -217,16 +204,14 @@ namespace OpcDAToMSA.Services
 
                 var result = await protocolRouter.SendDataAsync(data);
                 
-                // 更新监控指标
-                monitoringService.UpdateMetric("data_send_count", data.Length, "count");
-                monitoringService.UpdateMetric("data_send_success", result ? 1 : 0, "count");
+                // 监测服务已移除
 
                 return result;
             }
             catch (Exception ex)
             {
                 LoggerUtil.log.Error(ex, "发送数据失败");
-                monitoringService.UpdateMetric("data_send_errors", 1, "count");
+                // 监测服务已移除
                 return false;
             }
         }
@@ -396,16 +381,13 @@ namespace OpcDAToMSA.Services
                         {
                             if (!opcProvider.IsConnected)
                             {
-                                monitoringService.UpdateMetric("opcda_connected", 0, "bool");
                                 LoggerUtil.log.Warning("连接守护检测到 OPC 未连接，尝试重连...");
                                 try
                                 {
                                     var ok = await opcProvider.ConnectAsync();
-                                    monitoringService.UpdateMetric("opcda_reconnect_attempt", 1, "count");
                                     if (ok)
                                     {
                                         LoggerUtil.log.Information("OPC 重连成功");
-                                        monitoringService.UpdateMetric("opcda_connected", 1, "bool");
                                         baseDelayMs = 2000; // 成功后重置退避
                                     }
                                     else
@@ -422,7 +404,6 @@ namespace OpcDAToMSA.Services
                             }
                             else
                             {
-                                monitoringService.UpdateMetric("opcda_connected", 1, "bool");
                                 baseDelayMs = 2000;
                             }
                         }

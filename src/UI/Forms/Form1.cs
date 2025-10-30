@@ -17,7 +17,8 @@ using NHotkey;
 using OpcDAToMSA.Configuration;
 using System.Collections.Generic;
 using System.ComponentModel;
-using OpcDAToMSA.Monitoring;
+// using OpcDAToMSA.Monitoring; // 已移除旧监测服务
+using OpcDAToMSA.Observability;
 
 namespace OpcDAToMSA.UI.Forms
 {
@@ -316,8 +317,12 @@ namespace OpcDAToMSA.UI.Forms
             metricsGrid.DataSource = metricRows;
             try
             {
-                MonitoringService.Instance.MetricsUpdated += OnServiceMetricsUpdated;
-                MonitoringService.Instance.Start();
+                // 订阅新 MonitoringHost（并行）
+                var host = serviceManager?.GetService<MonitoringHost>();
+                if (host != null)
+                {
+                    host.MetricsPushed += OnHostMetricsPushed;
+                }
             }
             catch { }
         }
@@ -336,24 +341,77 @@ namespace OpcDAToMSA.UI.Forms
             metricsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             ApplyIndustrialTheme(metricsGrid);
 
-            var cName = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Name), HeaderText = "Metric", FillWeight = 30 };
-            var cVal = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Value), HeaderText = "Value", FillWeight = 25, DefaultCellStyle = new DataGridViewCellStyle{ Format = "0.###" } };
-            var cUnit = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Unit), HeaderText = "Unit", FillWeight = 15 };
-            var cTs = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Timestamp), HeaderText = "Timestamp", FillWeight = 30, DefaultCellStyle = new DataGridViewCellStyle{ Format = "yyyy-MM-dd HH:mm:ss" } };
-            metricsGrid.Columns.AddRange(new DataGridViewColumn[]{ cName, cVal, cUnit, cTs });
+            var cZh = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.DisplayName), HeaderText = "Name", FillWeight = 28 };
+            var cName = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Name), HeaderText = "Metric", FillWeight = 28 };
+            var cVal = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Value), HeaderText = "Value", FillWeight = 22, DefaultCellStyle = new DataGridViewCellStyle{ Format = "0.###" } };
+            var cUnit = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Unit), HeaderText = "Unit", FillWeight = 10 };
+            var cTs = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Timestamp), HeaderText = "Timestamp", FillWeight = 12, DefaultCellStyle = new DataGridViewCellStyle{ Format = "yyyy-MM-dd HH:mm:ss" } };
+            metricsGrid.Columns.AddRange(new DataGridViewColumn[]{ cZh, cName, cVal, cUnit, cTs });
 
             this.tabPageMonitor.Controls.Add(metricsGrid);
         }
 
-        private void OnServiceMetricsUpdated(object sender, OpcDAToMSA.Monitoring.MetricsUpdatedEventArgs e)
+        private void OnServiceMetricsUpdated(object sender, OpcDAToMSA.Events.MetricsUpdatedEventArgs e)
         {
             if (this.InvokeRequired)
             {
                 this.BeginInvoke(new Action(() => OnServiceMetricsUpdated(sender, e)));
                 return;
             }
-            if (e?.Metrics == null) return;
-            foreach (var kv in e.Metrics)
+            if (e == null || string.IsNullOrEmpty(e.MetricName)) return;
+            var name = e.MetricName;
+            if (!nameToMetric.TryGetValue(name, out var row))
+            {
+                row = new MetricRow{ Name = name };
+                nameToMetric[name] = row;
+                metricRows.Add(row);
+            }
+            double dv = 0;
+            if (e.Value is IConvertible)
+            {
+                try { dv = Convert.ToDouble(e.Value); } catch { dv = 0; }
+            }
+            row.Value = dv;
+            row.Unit = e.Unit;
+            row.Timestamp = e.Timestamp;
+            row.DisplayName = GetMetricDisplayName(name);
+            metricsGrid?.Invalidate();
+        }
+
+        private string GetMetricDisplayName(string metric)
+        {
+            if (string.IsNullOrEmpty(metric)) return metric;
+            switch (metric.ToLower())
+            {
+                case "sys.proc.cpu.percent": return "CPU(%)";
+                case "sys.proc.memory.mb": return "内存(MB)";
+                case "sys.disk.c.free.percent": return "磁盘可用(%)";
+                case "sys.disk.c.free.gb": return "磁盘可用(GB)";
+                case "opc.connected": return "OPC连接";
+                case "opc.reconnect.count": return "OPC重连次数";
+            }
+            if (metric.EndsWith(".connected", StringComparison.OrdinalIgnoreCase))
+            {
+                var prefix = metric.Split('.')[0];
+                return $"{prefix.ToUpper()}连接";
+            }
+            if (metric.EndsWith(".reconnect.count", StringComparison.OrdinalIgnoreCase))
+            {
+                var prefix = metric.Split('.')[0];
+                return $"{prefix.ToUpper()}重连次数";
+            }
+            return metric;
+        }
+
+        private void OnHostMetricsPushed(object sender, IDictionary<string, OpcDAToMSA.Observability.MetricValue> e)
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => OnHostMetricsPushed(sender, e)));
+                return;
+            }
+            if (e == null) return;
+            foreach (var kv in e)
             {
                 var m = kv.Value;
                 if (!nameToMetric.TryGetValue(m.Name, out var row))
@@ -365,8 +423,39 @@ namespace OpcDAToMSA.UI.Forms
                 row.Value = m.Value;
                 row.Unit = m.Unit;
                 row.Timestamp = m.Timestamp;
+                row.DisplayName = GetMetricDisplayName(m.Name);
             }
             metricsGrid?.Invalidate();
+        }
+
+        private void ReorderTopMetrics()
+        {
+            if (metricRows == null || metricRows.Count == 0) return;
+            string[] order = new []
+            {
+                "sys.proc.cpu.percent",
+                "sys.proc.memory.mb",
+                "sys.disk.c.free.percent",
+                "sys.disk.c.free.gb"
+            };
+            // suspend grid layout to avoid heavy redraw
+            try { metricsGrid?.SuspendLayout(); } catch { }
+            metricRows.RaiseListChangedEvents = false;
+            for (int target = 0; target < order.Length; target++)
+            {
+                var key = order[target];
+                if (!nameToMetric.TryGetValue(key, out var row)) continue;
+                int idx = metricRows.IndexOf(row);
+                if (idx >= 0 && idx != target)
+                {
+                    metricRows.RemoveAt(idx);
+                    if (target > metricRows.Count) target = metricRows.Count;
+                    metricRows.Insert(target, row);
+                }
+            }
+            metricRows.RaiseListChangedEvents = true;
+            metricRows.ResetBindings();
+            try { metricsGrid?.ResumeLayout(false); } catch { }
         }
 
         private void LogListBox_MouseWheel(object sender, MouseEventArgs e)
@@ -734,6 +823,21 @@ namespace OpcDAToMSA.UI.Forms
                 }
 
                 LoggerUtil.log.Information($"服务状态变化: {e.ServiceName} - {e.IsRunning} - {e.Message}");
+
+                // 服务启动后尝试附加新监测Host
+                if (e.IsRunning)
+                {
+                    var host = serviceManager?.GetService<OpcDAToMSA.Observability.MonitoringHost>();
+                    if (host != null)
+                    {
+                        try
+                        {
+                            host.MetricsPushed -= OnHostMetricsPushed; // 防重复
+                        }
+                        catch { }
+                        host.MetricsPushed += OnHostMetricsPushed;
+                    }
+                }
             }
             catch (Exception ex)
             {

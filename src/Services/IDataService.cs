@@ -1,6 +1,6 @@
 using Opc.Da;
 using OpcDAToMSA.Protocols;
-using OpcDAToMSA.Monitoring;
+// using OpcDAToMSA.Monitoring; // 已移除旧监测服务
 using System;
 using System.Threading.Tasks;
 
@@ -38,8 +38,7 @@ namespace OpcDAToMSA.Services
     public class ServiceStatus
     {
         public bool DataServiceRunning { get; set; }
-        public bool MonitoringServiceRunning { get; set; }
-        public HealthReport HealthReport { get; set; }
+        // 旧 MonitoringService 字段已移除
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 using OpcDAToMSA.Configuration;
 using OpcDAToMSA.Core;
-using OpcDAToMSA.Monitoring;
+// using OpcDAToMSA.Monitoring;
 using OpcDAToMSA.Protocols;
 using OpcDAToMSA.Services;
 using OpcDAToMSA.DependencyInjection;
@@ -9,6 +9,7 @@ using OpcDAToMSA.UI.Forms;
 using System;
 using System.Threading.Tasks;
 using IServiceProvider = OpcDAToMSA.DependencyInjection.IServiceProvider;
+using OpcDAToMSA.Observability;
 
 namespace OpcDAToMSA.Services
 {
@@ -22,7 +23,9 @@ namespace OpcDAToMSA.Services
         private readonly IConfigurationService configurationService;
         private readonly IProtocolAdapterFactory adapterFactory;
         private IDataService dataService;
-        private IMonitoringService monitoringService;
+        // private IMonitoringService monitoringService;
+        private MonitoringHost monitoringHost;
+        private bool opcAttached = false;
 
         #endregion
 
@@ -32,6 +35,11 @@ namespace OpcDAToMSA.Services
         {
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
             this.adapterFactory = adapterFactory ?? throw new ArgumentNullException(nameof(adapterFactory));
+
+            // 启动系统级监测（程序启动即运行）
+            monitoringHost = new MonitoringHost();
+            monitoringHost.Start();
+            OpcDAToMSA.Events.ApplicationEvents.OnServiceStatusChanged("MonitoringHost", true, "监测Host已启动");
         }
 
         #endregion
@@ -44,15 +52,20 @@ namespace OpcDAToMSA.Services
             {
                 LoggerUtil.log.Information("启动所有服务");
 
-                // 启动监控服务
-                monitoringService = MonitoringService.Instance;
-                monitoringService.Start();
+                // 旧 MonitoringService 已移除
 
                 // 启动数据服务
                 var opcProvider = new OpcNet(configurationService);
                 var protocolRouter = new ProtocolRouter(configurationService, adapterFactory);
-                dataService = new OpcDataService(opcProvider, protocolRouter, configurationService, monitoringService);
+                dataService = new OpcDataService(opcProvider, protocolRouter, configurationService);
                 var result = await dataService.StartAsync();
+
+                // 附加OPC监控（仅在首次启动时附加一次）
+                if (!opcAttached && monitoringHost != null)
+                {
+                    monitoringHost.AttachOpc("opc", () => opcProvider.IsConnected, async () => await opcProvider.ConnectAsync());
+                    opcAttached = true;
+                }
 
                 if (result)
                 {
@@ -85,12 +98,9 @@ namespace OpcDAToMSA.Services
                     dataService = null;
                 }
 
-                // 停止监控服务
-                if (monitoringService != null)
-                {
-                    monitoringService.Stop();
-                    monitoringService = null;
-                }
+                // 旧 MonitoringService 已移除
+
+                // 停止服务不影响系统监控，保留 MonitoringHost 运行
 
                 LoggerUtil.log.Information("所有服务已停止");
                 return true;
@@ -106,9 +116,7 @@ namespace OpcDAToMSA.Services
         {
             return new ServiceStatus
             {
-                DataServiceRunning = dataService?.IsRunning ?? false,
-                MonitoringServiceRunning = monitoringService?.IsRunning ?? false,
-                HealthReport = monitoringService?.GetHealthReport()
+                DataServiceRunning = dataService?.IsRunning ?? false
             };
         }
 
@@ -120,9 +128,10 @@ namespace OpcDAToMSA.Services
             {
                 return dataService as T;
             }
-            if (typeof(T) == typeof(IMonitoringService))
+            // 旧 IMonitoringService 已移除
+            if (typeof(T) == typeof(MonitoringHost))
             {
-                return monitoringService as T;
+                return monitoringHost as T;
             }
             return null;
         }
@@ -146,8 +155,7 @@ namespace OpcDAToMSA.Services
             // 注册配置服务
             container.Register<IConfigurationService, ConfigurationService>(ServiceLifetime.Singleton);
 
-            // 注册监控服务
-            container.Register<IMonitoringService, MonitoringService>(ServiceLifetime.Singleton);
+            // 旧 MonitoringService 注册已移除
 
             // 注册协议适配器工厂
             container.Register<IProtocolAdapterFactory, ProtocolAdapterFactory>(ServiceLifetime.Singleton);

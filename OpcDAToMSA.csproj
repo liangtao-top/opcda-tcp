@@ -261,13 +261,14 @@
     </Compile>
     <Compile Include="src\UI\Forms\PointRow.cs" />
     <Compile Include="src\UI\Forms\MetricRow.cs" />
+    <Compile Include="src\Observability\MonitoringHost.cs" />
     <Compile Include="src\DependencyInjection\ServiceContainer.cs" />
     <Compile Include="src\Events\ApplicationEvents.cs" />
     <Compile Include="src\Configuration\IConfigurationService.cs" />
     <Compile Include="src\Services\IDataService.cs" />
     <Compile Include="src\Services\DataService.cs" />
     <Compile Include="src\Services\ServiceManager.cs" />
-    <Compile Include="src\Monitoring\MonitoringService.cs" />
+    
     <Compile Include="src\Protocols\ProtocolAdapterFactory.cs" />
     <Compile Include="src\Protocols\IProtocolAdapter.cs" />
     <Compile Include="src\Protocols\MsaAdapter.cs" />

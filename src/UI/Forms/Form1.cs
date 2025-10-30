@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using NHotkey.WindowsForms;
 using NHotkey;
 using OpcDAToMSA.Configuration;
+using System.Collections.Generic;
 
 namespace OpcDAToMSA.UI.Forms
 {
@@ -91,15 +92,73 @@ namespace OpcDAToMSA.UI.Forms
         //委托
         protected delegate void ShowContentDelegate(string content);
 
+        // 日志显示优化相关字段
+        private readonly StringBuilder logBuffer = new StringBuilder();
+        private readonly Queue<string> logLines = new Queue<string>();
+        private const int MaxDisplayLines = 1500;
+        private const int CleanupThreshold = 2000; // 超过此数量时清理
+        private System.Windows.Forms.Timer logUpdateTimer;
+        private readonly object logLock = new object();
+
+        /// <summary>
+        /// 优化的日志显示方法
+        /// </summary>
         private void ShowContent(string content)
         {
-            int maxLine = 1500;//最大显示行数
-            int curLine = this.textBoxDescription.Lines.Length;
-            if (curLine > maxLine)
+            lock (logLock)
             {
-                this.textBoxDescription.Lines = this.textBoxDescription.Lines.Skip(curLine - maxLine).Take(maxLine).ToArray();
+                // 添加新日志行
+                logLines.Enqueue(content);
+                
+                // 如果超过清理阈值，移除旧行
+                while (logLines.Count > CleanupThreshold)
+                {
+                    logLines.Dequeue();
+                }
             }
-            this.textBoxDescription.AppendText(content + "\r\n");
+
+            // 使用定时器批量更新UI，避免频繁刷新
+            if (logUpdateTimer == null)
+            {
+                logUpdateTimer = new System.Windows.Forms.Timer();
+                logUpdateTimer.Interval = 50; // 50ms更新一次
+                logUpdateTimer.Tick += UpdateLogDisplay;
+            }
+            
+            if (!logUpdateTimer.Enabled)
+            {
+                logUpdateTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// 定时更新日志显示
+        /// </summary>
+        private void UpdateLogDisplay(object sender, EventArgs e)
+        {
+            lock (logLock)
+            {
+                if (logLines.Count == 0)
+                {
+                    logUpdateTimer.Stop();
+                    return;
+                }
+
+                // 批量构建显示内容
+                logBuffer.Clear();
+                var linesToShow = logLines.Skip(Math.Max(0, logLines.Count - MaxDisplayLines)).Take(MaxDisplayLines);
+                foreach (var line in linesToShow)
+                {
+                    logBuffer.AppendLine(line);
+                }
+
+                // 一次性更新UI
+                this.textBoxDescription.Text = logBuffer.ToString();
+                
+                // 自动滚动到底部
+                this.textBoxDescription.SelectionStart = this.textBoxDescription.Text.Length;
+                this.textBoxDescription.ScrollToCaret();
+            }
         }
 
         #region   拦截Windows消息
@@ -232,10 +291,16 @@ namespace OpcDAToMSA.UI.Forms
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
+            // 清理定时器资源
+            logUpdateTimer?.Stop();
+            logUpdateTimer?.Dispose();
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // 清理定时器资源
+            logUpdateTimer?.Stop();
+            logUpdateTimer?.Dispose();
         }
 
         private void Form1_KeyDown(object sender, KeyEventArgs e)

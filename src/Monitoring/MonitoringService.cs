@@ -265,7 +265,7 @@ namespace OpcDAToMSA.Monitoring
                 };
 
                 metrics[metricName] = metric;
-                LoggerUtil.log.Debug($"指标 {metricName} 已更新：{value} {unit}");
+                // LoggerUtil.log.Debug($"指标 {metricName} 已更新：{value} {unit}");
             }
             catch (Exception ex)
             {

@@ -48,6 +48,10 @@ namespace OpcDAToMSA.UI.Forms
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
+            this.tabControlMain = new System.Windows.Forms.TabControl();
+            this.tabPageLog = new System.Windows.Forms.TabPage();
+            this.tabPagePoints = new System.Windows.Forms.TabPage();
+            this.tabPageMonitor = new System.Windows.Forms.TabPage();
             this.panelCenter = new System.Windows.Forms.Panel();
             this.panelBottom = new System.Windows.Forms.Panel();
             this.label4 = new System.Windows.Forms.Label();
@@ -56,6 +60,8 @@ namespace OpcDAToMSA.UI.Forms
             this.label1 = new System.Windows.Forms.Label();
             this.button1 = new System.Windows.Forms.Button();
             this.okButton = new System.Windows.Forms.Button();
+            this.tabControlMain.SuspendLayout();
+            this.tabPageLog.SuspendLayout();
             this.panelBottom.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -66,13 +72,55 @@ namespace OpcDAToMSA.UI.Forms
             this.notifyIcon1.Visible = true;
             this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.NotifyIcon1_MouseDoubleClick);
             // 
+            // tabControlMain
+            // 
+            this.tabControlMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tabControlMain.Location = new System.Drawing.Point(0, 0);
+            this.tabControlMain.Name = "tabControlMain";
+            this.tabControlMain.SelectedIndex = 0;
+            this.tabControlMain.Size = new System.Drawing.Size(533, 275);
+            this.tabControlMain.TabIndex = 200;
+            // 
+            // tabPageLog
+            // 
+            this.tabPageLog.Controls.Add(this.panelCenter);
+            this.tabPageLog.Location = new System.Drawing.Point(4, 22);
+            this.tabPageLog.Name = "tabPageLog";
+            this.tabPageLog.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageLog.Size = new System.Drawing.Size(525, 249);
+            this.tabPageLog.TabIndex = 0;
+            this.tabPageLog.Text = "日志";
+            this.tabPageLog.UseVisualStyleBackColor = true;
+            // 
+            // tabPagePoints
+            // 
+            this.tabPagePoints.Location = new System.Drawing.Point(4, 22);
+            this.tabPagePoints.Name = "tabPagePoints";
+            this.tabPagePoints.Padding = new System.Windows.Forms.Padding(0);
+            this.tabPagePoints.Size = new System.Drawing.Size(525, 249);
+            this.tabPagePoints.TabIndex = 1;
+            this.tabPagePoints.Text = "点位";
+            this.tabPagePoints.UseVisualStyleBackColor = false;
+            this.tabPagePoints.BackColor = System.Drawing.Color.Transparent;
+            // 
+            // tabPageMonitor
+            // 
+            this.tabPageMonitor.Location = new System.Drawing.Point(4, 22);
+            this.tabPageMonitor.Name = "tabPageMonitor";
+            this.tabPageMonitor.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageMonitor.Size = new System.Drawing.Size(525, 249);
+            this.tabPageMonitor.TabIndex = 2;
+            this.tabPageMonitor.Text = "监测";
+            this.tabPageMonitor.UseVisualStyleBackColor = false;
+            this.tabPageMonitor.BackColor = System.Drawing.Color.Transparent;
+            // 
             // panelCenter
             // 
             this.panelCenter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelCenter.Location = new System.Drawing.Point(0, 0);
+            this.panelCenter.Location = new System.Drawing.Point(3, 3);
             this.panelCenter.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.panelCenter.Name = "panelCenter";
-            this.panelCenter.Size = new System.Drawing.Size(533, 275);
+            this.panelCenter.Size = new System.Drawing.Size(519, 243);
             this.panelCenter.TabIndex = 100;
             // 
             // panelBottom
@@ -165,7 +213,10 @@ namespace OpcDAToMSA.UI.Forms
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(533, 300);
-            this.Controls.Add(this.panelCenter);
+            this.tabControlMain.Controls.Add(this.tabPageLog);
+            this.tabControlMain.Controls.Add(this.tabPagePoints);
+            this.tabControlMain.Controls.Add(this.tabPageMonitor);
+            this.Controls.Add(this.tabControlMain);
             this.Controls.Add(this.panelBottom);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.KeyPreview = true;
@@ -181,6 +232,8 @@ namespace OpcDAToMSA.UI.Forms
             this.Resize += new System.EventHandler(this.Form1_Resize);
             this.panelBottom.ResumeLayout(false);
             this.panelBottom.PerformLayout();
+            this.tabPageLog.ResumeLayout(false);
+            this.tabControlMain.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -196,6 +249,10 @@ namespace OpcDAToMSA.UI.Forms
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Panel panelCenter;
         private System.Windows.Forms.Panel panelBottom;
+        private System.Windows.Forms.TabControl tabControlMain;
+        private System.Windows.Forms.TabPage tabPageLog;
+        private System.Windows.Forms.TabPage tabPagePoints;
+        private System.Windows.Forms.TabPage tabPageMonitor;
     }
 }
 

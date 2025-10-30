@@ -16,6 +16,8 @@ using NHotkey.WindowsForms;
 using NHotkey;
 using OpcDAToMSA.Configuration;
 using System.Collections.Generic;
+using System.ComponentModel;
+using OpcDAToMSA.Monitoring;
 
 namespace OpcDAToMSA.UI.Forms
 {
@@ -71,6 +73,16 @@ namespace OpcDAToMSA.UI.Forms
             this.Form1_ClientHeight = this.ClientSize.Height;
             //UpdateBottomPanelHeight();
             //UpdateBottomPanelLayout();
+            try
+            {
+                InitializePointsFromConfig();
+                InitializeMonitoringTab();
+                // 工业暗黑主题背景
+                var darkBg = Color.FromArgb(0x1E, 0x1E, 0x1E);
+                this.tabPagePoints.BackColor = darkBg;
+                this.tabPageMonitor.BackColor = darkBg;
+            }
+            catch { }
             
             if (serviceManager != null)
             {
@@ -99,6 +111,16 @@ namespace OpcDAToMSA.UI.Forms
         private const int MaxDisplayLines = 3000;
         private const int TrimBlockSize = 100; // 超限时成块裁剪，避免频繁重排
         private bool autoScrollEnabled = true;
+
+        // 点位表格相关
+        private DataGridView pointsGrid;
+        private BindingList<PointRow> pointRows;
+        private readonly Dictionary<string, PointRow> tagToRow = new Dictionary<string, PointRow>(StringComparer.OrdinalIgnoreCase);
+
+        // 监测表格相关
+        private DataGridView metricsGrid;
+        private BindingList<MetricRow> metricRows;
+        private readonly Dictionary<string, MetricRow> nameToMetric = new Dictionary<string, MetricRow>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// 初始化实时日志ListBox
@@ -139,6 +161,212 @@ namespace OpcDAToMSA.UI.Forms
             // 添加到中心面板并置顶
             this.panelCenter.Controls.Add(logListBox);
             logListBox.BringToFront();
+        }
+
+        /// <summary>
+        /// 初始化点位列表（从配置registers生成）
+        /// </summary>
+        private void InitializePointsFromConfig()
+        {
+            EnsurePointsGrid();
+            pointRows = new BindingList<PointRow>();
+            tagToRow.Clear();
+            var regs = configurationService.GetConfiguration()?.Registers;
+            if (regs != null)
+            {
+                foreach (var kv in regs)
+                {
+                    var row = new PointRow
+                    {
+                        Tag = kv.Key,
+                        Code = kv.Value,
+                        Value = null,
+                        Quality = "N/A",
+                        Timestamp = DateTime.MinValue,
+                        LastChanged = DateTime.MinValue
+                    };
+                    pointRows.Add(row);
+                    tagToRow[kv.Key] = row;
+                }
+            }
+            pointsGrid.DataSource = pointRows;
+        }
+
+        /// <summary>
+        /// 创建点位表格
+        /// </summary>
+        private void EnsurePointsGrid()
+        {
+            if (pointsGrid != null) return;
+            pointsGrid = new DataGridView();
+            pointsGrid.Dock = DockStyle.Fill;
+            pointsGrid.AllowUserToAddRows = false;
+            pointsGrid.AllowUserToDeleteRows = false;
+            pointsGrid.ReadOnly = true;
+            pointsGrid.RowHeadersVisible = false;
+            pointsGrid.AutoGenerateColumns = false;
+            pointsGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            pointsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            ApplyIndustrialTheme(pointsGrid);
+            pointsGrid.CellFormatting += PointsGrid_CellFormatting;
+
+            // 定义列
+            var colTag = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Tag), HeaderText = "Tag", FillWeight = 30 }; 
+            var colCode = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Code), HeaderText = "Code", FillWeight = 18 }; 
+            var colValue = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Value), HeaderText = "Value", FillWeight = 18 }; 
+            var colQuality = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Quality), HeaderText = "Quality", FillWeight = 12 }; 
+            var colTs = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Timestamp), HeaderText = "Timestamp", FillWeight = 22, DefaultCellStyle = new DataGridViewCellStyle{ Format = "yyyy-MM-dd HH:mm:ss" } }; 
+            pointsGrid.Columns.AddRange(new DataGridViewColumn[]{ colTag, colCode, colValue, colQuality, colTs });
+
+            // 加入“点位”页
+            this.tabPagePoints.Controls.Add(pointsGrid);
+        }
+
+        private void PointsGrid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (pointsGrid?.Rows == null || e.RowIndex < 0 || e.RowIndex >= pointsGrid.Rows.Count) return;
+            if (pointsGrid.Rows[e.RowIndex].DataBoundItem is PointRow row)
+            {
+                // 统一状态色
+                ApplyStatusColor(e, row.Quality);
+
+                // 变更高亮（最近2秒）
+                if (row.LastChanged != DateTime.MinValue && (DateTime.Now - row.LastChanged).TotalSeconds < 2)
+                {
+                    e.CellStyle.BackColor = Color.FromArgb(40, 80, 40); // 淡绿色背景
+                }
+            }
+        }
+
+        /// <summary>
+        /// 工业暗黑主题：统一表格样式
+        /// </summary>
+        private void ApplyIndustrialTheme(DataGridView grid)
+        {
+            if (grid == null) return;
+            grid.BackgroundColor = Color.FromArgb(0x1E, 0x1E, 0x1E);
+            grid.GridColor = Color.FromArgb(0x2A, 0x2A, 0x2A);
+            grid.EnableHeadersVisualStyles = false;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(0x26, 0x26, 0x26);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(0xF0, 0xF0, 0xF0);
+            try { grid.ColumnHeadersDefaultCellStyle.Font = new Font("Consolas", 9F, FontStyle.Bold); } catch { }
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(0x1A, 0x1A, 0x1A);
+            grid.DefaultCellStyle.BackColor = Color.FromArgb(0x20, 0x20, 0x20);
+            grid.DefaultCellStyle.ForeColor = Color.FromArgb(0xD8, 0xD8, 0xD8);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(0x33, 0x33, 0x33);
+            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleVertical;
+            grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+        }
+
+        /// <summary>
+        /// 统一状态着色（Good/Bad/Uncertain）
+        /// </summary>
+        private void ApplyStatusColor(DataGridViewCellFormattingEventArgs e, string quality)
+        {
+            if (string.IsNullOrEmpty(quality)) return;
+            if (string.Equals(quality, "Good", StringComparison.OrdinalIgnoreCase))
+            {
+                e.CellStyle.ForeColor = Color.LawnGreen; // #7CFC00
+            }
+            else if (string.Equals(quality, "Bad", StringComparison.OrdinalIgnoreCase))
+            {
+                e.CellStyle.ForeColor = Color.OrangeRed;
+                e.CellStyle.Font = new Font(e.CellStyle.Font ?? this.Font, FontStyle.Bold);
+            }
+            else if (!string.Equals(quality, "N/A", StringComparison.OrdinalIgnoreCase))
+            {
+                e.CellStyle.ForeColor = Color.Orange;
+            }
+        }
+
+        /// <summary>
+        /// 对外暴露的点位更新入口（后续可由OPC数据流调用）
+        /// </summary>
+        public void UpdatePointValue(string tag, object value, string quality, DateTime timestamp)
+        {
+            if (string.IsNullOrEmpty(tag)) return;
+            if (!tagToRow.TryGetValue(tag, out var row)) return;
+            // 在UI线程更新
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => UpdatePointValue(tag, value, quality, timestamp)));
+                return;
+            }
+            row.Value = value;
+            row.Quality = quality ?? row.Quality;
+            row.Timestamp = timestamp == default ? DateTime.Now : timestamp;
+            row.LastChanged = DateTime.Now;
+            // 局部刷新本行
+            var index = pointRows.IndexOf(row);
+            if (index >= 0)
+            {
+                pointsGrid.InvalidateRow(index);
+            }
+        }
+
+        /// <summary>
+        /// 初始化监测页：表格与事件订阅
+        /// </summary>
+        private void InitializeMonitoringTab()
+        {
+            EnsureMetricsGrid();
+            metricRows = new BindingList<MetricRow>();
+            nameToMetric.Clear();
+            metricsGrid.DataSource = metricRows;
+            try
+            {
+                MonitoringService.Instance.MetricsUpdated += OnServiceMetricsUpdated;
+                MonitoringService.Instance.Start();
+            }
+            catch { }
+        }
+
+        private void EnsureMetricsGrid()
+        {
+            if (metricsGrid != null) return;
+            metricsGrid = new DataGridView();
+            metricsGrid.Dock = DockStyle.Fill;
+            metricsGrid.AllowUserToAddRows = false;
+            metricsGrid.AllowUserToDeleteRows = false;
+            metricsGrid.ReadOnly = true;
+            metricsGrid.RowHeadersVisible = false;
+            metricsGrid.AutoGenerateColumns = false;
+            metricsGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            metricsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            ApplyIndustrialTheme(metricsGrid);
+
+            var cName = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Name), HeaderText = "Metric", FillWeight = 30 };
+            var cVal = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Value), HeaderText = "Value", FillWeight = 25, DefaultCellStyle = new DataGridViewCellStyle{ Format = "0.###" } };
+            var cUnit = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Unit), HeaderText = "Unit", FillWeight = 15 };
+            var cTs = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(MetricRow.Timestamp), HeaderText = "Timestamp", FillWeight = 30, DefaultCellStyle = new DataGridViewCellStyle{ Format = "yyyy-MM-dd HH:mm:ss" } };
+            metricsGrid.Columns.AddRange(new DataGridViewColumn[]{ cName, cVal, cUnit, cTs });
+
+            this.tabPageMonitor.Controls.Add(metricsGrid);
+        }
+
+        private void OnServiceMetricsUpdated(object sender, OpcDAToMSA.Monitoring.MetricsUpdatedEventArgs e)
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => OnServiceMetricsUpdated(sender, e)));
+                return;
+            }
+            if (e?.Metrics == null) return;
+            foreach (var kv in e.Metrics)
+            {
+                var m = kv.Value;
+                if (!nameToMetric.TryGetValue(m.Name, out var row))
+                {
+                    row = new MetricRow{ Name = m.Name };
+                    nameToMetric[m.Name] = row;
+                    metricRows.Add(row);
+                }
+                row.Value = m.Value;
+                row.Unit = m.Unit;
+                row.Timestamp = m.Timestamp;
+            }
+            metricsGrid?.Invalidate();
         }
 
         private void LogListBox_MouseWheel(object sender, MouseEventArgs e)
@@ -516,7 +744,7 @@ namespace OpcDAToMSA.UI.Forms
         /// <summary>
         /// 系统指标更新事件处理
         /// </summary>
-        private void OnMetricsUpdated(object sender, MetricsUpdatedEventArgs e)
+        private void OnMetricsUpdated(object sender, OpcDAToMSA.Events.MetricsUpdatedEventArgs e)
         {
             try
             {

@@ -259,6 +259,8 @@
     <Compile Include="src\UI\Forms\Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="src\UI\Forms\PointRow.cs" />
+    <Compile Include="src\UI\Forms\MetricRow.cs" />
     <Compile Include="src\DependencyInjection\ServiceContainer.cs" />
     <Compile Include="src\Events\ApplicationEvents.cs" />
     <Compile Include="src\Configuration\IConfigurationService.cs" />

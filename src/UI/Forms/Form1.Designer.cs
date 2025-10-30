@@ -99,7 +99,7 @@ namespace OpcDAToMSA.UI.Forms
             this.tabPagePoints.Padding = new System.Windows.Forms.Padding(0);
             this.tabPagePoints.Size = new System.Drawing.Size(525, 249);
             this.tabPagePoints.TabIndex = 1;
-            this.tabPagePoints.Text = "点位视图";
+            this.tabPagePoints.Text = "数据视图";
             this.tabPagePoints.UseVisualStyleBackColor = false;
             this.tabPagePoints.BackColor = System.Drawing.Color.Transparent;
             // 

@@ -359,7 +359,7 @@ namespace OpcDAToMSA.UI.Forms
                 return;
             }
             if (e == null || string.IsNullOrEmpty(e.MetricName)) return;
-            var name = e.MetricName;
+            var name = (e.MetricName ?? string.Empty).ToLowerInvariant();
             if (!nameToMetric.TryGetValue(name, out var row))
             {
                 row = new MetricRow{ Name = name };
@@ -387,18 +387,18 @@ namespace OpcDAToMSA.UI.Forms
                 case "sys.proc.memory.mb": return "内存(MB)";
                 case "sys.disk.c.free.percent": return "磁盘可用(%)";
                 case "sys.disk.c.free.gb": return "磁盘可用(GB)";
-                case "opc.connected": return "OPC连接";
-                case "opc.reconnect.count": return "OPC重连次数";
+                case "opc.connected": return "OPC-连接";
+                case "opc.reconnect.count": return "OPC-重连次数";
             }
             if (metric.EndsWith(".connected", StringComparison.OrdinalIgnoreCase))
             {
                 var prefix = metric.Split('.')[0];
-                return $"{prefix.ToUpper()}连接";
+                return $"{prefix.ToUpper()}-连接";
             }
             if (metric.EndsWith(".reconnect.count", StringComparison.OrdinalIgnoreCase))
             {
                 var prefix = metric.Split('.')[0];
-                return $"{prefix.ToUpper()}重连次数";
+                return $"{prefix.ToUpper()}-重连次数";
             }
             return metric;
         }
@@ -414,16 +414,17 @@ namespace OpcDAToMSA.UI.Forms
             foreach (var kv in e)
             {
                 var m = kv.Value;
-                if (!nameToMetric.TryGetValue(m.Name, out var row))
+                var key = (m.Name ?? string.Empty).ToLowerInvariant();
+                if (!nameToMetric.TryGetValue(key, out var row))
                 {
-                    row = new MetricRow{ Name = m.Name };
-                    nameToMetric[m.Name] = row;
+                    row = new MetricRow{ Name = key };
+                    nameToMetric[key] = row;
                     metricRows.Add(row);
                 }
                 row.Value = m.Value;
                 row.Unit = m.Unit;
                 row.Timestamp = m.Timestamp;
-                row.DisplayName = GetMetricDisplayName(m.Name);
+                row.DisplayName = GetMetricDisplayName(key);
             }
             metricsGrid?.Invalidate();
         }

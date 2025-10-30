@@ -76,48 +76,57 @@ namespace OpcDAToMSA.Protocols
 
                 var config = configurationService.GetConfiguration();
 
-                // 初始化 MSA 适配器
+                // 初始化 MSA 适配器（按配置加入路由器，失败也加入，连接状态为 false）
                 if (config.Protocols.ContainsKey("msa") && config.Protocols["msa"].Enabled)
                 {
                     var msaAdapter = adapterFactory.CreateAdapter("msa");
-                    if (await msaAdapter.InitializeAsync())
+                    var ok = false;
+                    try { ok = await msaAdapter.InitializeAsync(); }
+                    catch (Exception ex) { LoggerUtil.log.Error(ex, "MSA 适配器初始化异常"); }
+                    adapters.Add(msaAdapter);
+                    if (ok)
                     {
-                        adapters.Add(msaAdapter);
-                        LoggerUtil.log.Information("MSA 适配器初始化成功");
+                        LoggerUtil.log.Information("MSA 适配器初始化成功（已加入路由器）");
                     }
                     else
                     {
-                        LoggerUtil.log.Error("MSA 适配器初始化失败");
+                        LoggerUtil.log.Warning("MSA 适配器初始化失败（已加入路由器，等待重连）");
                     }
                 }
 
-                // 初始化 MQTT 适配器
+                // 初始化 MQTT 适配器（按配置加入路由器，失败也加入，连接状态为 false）
                 if (config.Protocols.ContainsKey("mqtt") && config.Protocols["mqtt"].Enabled)
                 {
                     var mqttAdapter = adapterFactory.CreateAdapter("mqtt");
-                    if (await mqttAdapter.InitializeAsync())
+                    var ok = false;
+                    try { ok = await mqttAdapter.InitializeAsync(); }
+                    catch (Exception ex) { LoggerUtil.log.Error(ex, "MQTT 适配器初始化异常"); }
+                    adapters.Add(mqttAdapter);
+                    if (ok)
                     {
-                        adapters.Add(mqttAdapter);
-                        LoggerUtil.log.Information("MQTT 适配器初始化成功");
+                        LoggerUtil.log.Information("MQTT 适配器初始化成功（已加入路由器）");
                     }
                     else
                     {
-                        LoggerUtil.log.Error("MQTT 适配器初始化失败");
+                        LoggerUtil.log.Warning("MQTT 适配器初始化失败（已加入路由器，等待重连）");
                     }
                 }
 
-                // 初始化 Modbus TCP 适配器
+                // 初始化 Modbus TCP 适配器（按配置加入路由器，失败也加入，连接状态为 false）
                 if (config.Protocols.ContainsKey("modbusTcp") && config.Protocols["modbusTcp"].Enabled)
                 {
                     var modbusTcpAdapter = adapterFactory.CreateAdapter("modbusTcp");
-                    if (await modbusTcpAdapter.InitializeAsync())
+                    var ok = false;
+                    try { ok = await modbusTcpAdapter.InitializeAsync(); }
+                    catch (Exception ex) { LoggerUtil.log.Error(ex, "Modbus TCP 适配器初始化异常"); }
+                    adapters.Add(modbusTcpAdapter);
+                    if (ok)
                     {
-                        adapters.Add(modbusTcpAdapter);
-                        LoggerUtil.log.Information("Modbus TCP 适配器初始化成功");
+                        LoggerUtil.log.Information("Modbus TCP 适配器初始化成功（已加入路由器）");
                     }
                     else
                     {
-                        LoggerUtil.log.Error("Modbus TCP 适配器初始化失败");
+                        LoggerUtil.log.Warning("Modbus TCP 适配器初始化失败（已加入路由器，等待重连）");
                     }
                 }
 

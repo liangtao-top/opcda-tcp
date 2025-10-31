@@ -37,6 +37,11 @@ namespace OpcDAToMSA.Events
         public static event EventHandler<LogMessageEventArgs> LogMessageReceived;
 
         /// <summary>
+        /// OPC数据更新事件
+        /// </summary>
+        public static event EventHandler<OpcDataUpdatedEventArgs> OpcDataUpdated;
+
+        /// <summary>
         /// 触发OPC连接状态变化事件
         /// </summary>
         public static void OnOpcConnectionChanged(bool isConnected, string message = null)
@@ -94,6 +99,14 @@ namespace OpcDAToMSA.Events
             {
                 return _logBuffer.ToArray();
             }
+        }
+
+        /// <summary>
+        /// 触发OPC数据更新事件
+        /// </summary>
+        public static void OnOpcDataUpdated(string tag, object value, string quality, string resultID, DateTime timestamp)
+        {
+            OpcDataUpdated?.Invoke(null, new OpcDataUpdatedEventArgs(tag, value, quality, resultID, timestamp));
         }
     }
 
@@ -181,6 +194,27 @@ namespace OpcDAToMSA.Events
         {
             Message = message;
             Timestamp = DateTime.Now;
+        }
+    }
+
+    /// <summary>
+    /// OPC数据更新事件参数
+    /// </summary>
+    public class OpcDataUpdatedEventArgs : EventArgs
+    {
+        public string Tag { get; }
+        public object Value { get; }
+        public string Quality { get; }
+        public string ResultID { get; }
+        public DateTime Timestamp { get; }
+
+        public OpcDataUpdatedEventArgs(string tag, object value, string quality, string resultID, DateTime timestamp)
+        {
+            Tag = tag;
+            Value = value;
+            Quality = quality;
+            ResultID = resultID;
+            Timestamp = timestamp;
         }
     }
 }

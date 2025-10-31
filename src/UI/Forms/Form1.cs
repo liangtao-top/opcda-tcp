@@ -119,8 +119,12 @@ namespace OpcDAToMSA.UI.Forms
 
         // 点位表格相关
         private DataGridView pointsGrid;
-        private BindingList<PointRow> pointRows;
+        private BindingList<PointRow> pointRows; // 原始数据源（所有点位）
         private readonly Dictionary<string, PointRow> tagToRow = new Dictionary<string, PointRow>(StringComparer.OrdinalIgnoreCase);
+        private Panel pointsPanel; // 数据视图容器面板
+        private ToolStrip filterToolStrip; // 筛选工具栏
+        private ToolStripTextBox filterTextBox; // 筛选文本框
+        private ToolStripComboBox qualityComboBox; // 质量筛选下拉框
 
         // 监测表格相关
         private DataGridView metricsGrid;
@@ -269,6 +273,7 @@ namespace OpcDAToMSA.UI.Forms
             EnsurePointsGrid();
             pointRows = new BindingList<PointRow>();
             tagToRow.Clear();
+            
             var regs = configurationService.GetConfiguration()?.Registers;
             if (regs != null)
             {
@@ -280,6 +285,7 @@ namespace OpcDAToMSA.UI.Forms
                         Code = kv.Value,
                         Value = null,
                         Quality = "N/A",
+                        ResultID = string.Empty,
                         Timestamp = DateTime.MinValue,
                         LastChanged = DateTime.MinValue
                     };
@@ -287,15 +293,72 @@ namespace OpcDAToMSA.UI.Forms
                     tagToRow[kv.Key] = row;
                 }
             }
-            pointsGrid.DataSource = pointRows;
+            // 初始显示全部数据（应用筛选会更新显示）
+            ApplyFilter();
         }
 
         /// <summary>
-        /// 创建点位表格
+        /// 创建点位表格（包含筛选工具栏）
         /// </summary>
         private void EnsurePointsGrid()
         {
             if (pointsGrid != null) return;
+            
+            // 创建容器面板
+            pointsPanel = new Panel();
+            pointsPanel.Dock = DockStyle.Fill;
+            pointsPanel.BackColor = Color.FromArgb(0x1E, 0x1E, 0x1E);
+            
+            // 创建筛选工具栏
+            filterToolStrip = new ToolStrip();
+            filterToolStrip.Dock = DockStyle.Top;
+            filterToolStrip.BackColor = Color.FromArgb(0x26, 0x26, 0x26);
+            filterToolStrip.ForeColor = Color.FromArgb(0xF0, 0xF0, 0xF0);
+            filterToolStrip.GripStyle = ToolStripGripStyle.Hidden; // 隐藏拖拽手柄
+            
+            // 创建筛选控件
+            var lblFilter = new ToolStripLabel("筛选:");
+            lblFilter.ForeColor = Color.FromArgb(0xF0, 0xF0, 0xF0);
+            
+            filterTextBox = new ToolStripTextBox();
+            filterTextBox.Width = 200;
+            filterTextBox.BackColor = Color.FromArgb(0x20, 0x20, 0x20);
+            filterTextBox.ForeColor = Color.FromArgb(0xD8, 0xD8, 0xD8);
+            filterTextBox.BorderStyle = BorderStyle.FixedSingle;
+            filterTextBox.TextChanged += FilterTextBox_TextChanged;
+            filterTextBox.KeyDown += FilterTextBox_KeyDown;
+            
+            var lblQuality = new ToolStripLabel("质量:");
+            lblQuality.ForeColor = Color.FromArgb(0xF0, 0xF0, 0xF0);
+            
+            qualityComboBox = new ToolStripComboBox();
+            qualityComboBox.Width = 120;
+            qualityComboBox.BackColor = Color.FromArgb(0x20, 0x20, 0x20);
+            qualityComboBox.ForeColor = Color.FromArgb(0xD8, 0xD8, 0xD8);
+            qualityComboBox.Items.AddRange(new[] { "全部", "Good", "Bad", "N/A" });
+            qualityComboBox.SelectedIndex = 0;
+            qualityComboBox.SelectedIndexChanged += QualityComboBox_SelectedIndexChanged;
+            
+            var btnApplyFilter = new ToolStripButton("应用");
+            btnApplyFilter.Click += BtnApplyFilter_Click;
+            
+            var btnClearFilter = new ToolStripButton("清除");
+            btnClearFilter.Click += BtnClearFilter_Click;
+            
+            // 添加到工具栏
+            filterToolStrip.Items.AddRange(new ToolStripItem[]
+            {
+                lblFilter,
+                filterTextBox,
+                new ToolStripSeparator(),
+                lblQuality,
+                qualityComboBox,
+                new ToolStripSeparator(),
+                btnApplyFilter,
+                btnClearFilter
+            });
+            
+            // 创建表格
             pointsGrid = new DataGridView();
             pointsGrid.Dock = DockStyle.Fill;
             pointsGrid.AllowUserToAddRows = false;
@@ -309,15 +372,20 @@ namespace OpcDAToMSA.UI.Forms
             pointsGrid.CellFormatting += PointsGrid_CellFormatting;
 
             // 定义列
-            var colTag = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Tag), HeaderText = "Tag", FillWeight = 30 }; 
-            var colCode = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Code), HeaderText = "Code", FillWeight = 18 }; 
-            var colValue = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Value), HeaderText = "Value", FillWeight = 18 }; 
-            var colQuality = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Quality), HeaderText = "Quality", FillWeight = 12 }; 
-            var colTs = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Timestamp), HeaderText = "Timestamp", FillWeight = 22, DefaultCellStyle = new DataGridViewCellStyle{ Format = "yyyy-MM-dd HH:mm:ss" } }; 
-            pointsGrid.Columns.AddRange(new DataGridViewColumn[]{ colTag, colCode, colValue, colQuality, colTs });
+            var colTag = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Tag), HeaderText = "Tag", FillWeight = 25 }; 
+            var colCode = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Code), HeaderText = "Code", FillWeight = 15 }; 
+            var colValue = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Value), HeaderText = "Value", FillWeight = 15 }; 
+            var colQuality = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Quality), HeaderText = "Quality", FillWeight = 10 }; 
+            var colTs = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.Timestamp), HeaderText = "Timestamp", FillWeight = 20, DefaultCellStyle = new DataGridViewCellStyle{ Format = "yyyy-MM-dd HH:mm:ss" } }; 
+            var colResultID = new DataGridViewTextBoxColumn{ DataPropertyName = nameof(PointRow.ResultID), HeaderText = "ResultID", FillWeight = 15 }; 
+            pointsGrid.Columns.AddRange(new DataGridViewColumn[]{ colTag, colCode, colValue, colQuality, colTs, colResultID });
 
+            // 组装：先将表格添加到面板，再将工具栏添加到面板（保证工具栏在上方）
+            pointsPanel.Controls.Add(pointsGrid);
+            pointsPanel.Controls.Add(filterToolStrip);
+            
             // 加入“点位”页
-            this.tabPagePoints.Controls.Add(pointsGrid);
+            this.tabPagePoints.Controls.Add(pointsPanel);
         }
 
         private void PointsGrid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
@@ -328,13 +396,10 @@ namespace OpcDAToMSA.UI.Forms
                 // 统一状态色
                 ApplyStatusColor(e, row.Quality);
 
-                // 变更高亮（最近2秒）
-                if (row.LastChanged != DateTime.MinValue && (DateTime.Now - row.LastChanged).TotalSeconds < 2)
-                {
-                    e.CellStyle.BackColor = Color.FromArgb(40, 80, 40); // 淡绿色背景
-                }
+                // 变更高亮已移除（不再显示绿色背景）
             }
         }
+
 
         /// <summary>
         /// 工业暗黑主题：统一表格样式
@@ -379,26 +444,144 @@ namespace OpcDAToMSA.UI.Forms
         /// <summary>
         /// 对外暴露的点位更新入口（后续可由OPC数据流调用）
         /// </summary>
-        public void UpdatePointValue(string tag, object value, string quality, DateTime timestamp)
+        public void UpdatePointValue(string tag, object value, string quality, string resultID, DateTime timestamp)
         {
             if (string.IsNullOrEmpty(tag)) return;
             if (!tagToRow.TryGetValue(tag, out var row)) return;
             // 在UI线程更新
             if (this.InvokeRequired)
             {
-                this.BeginInvoke(new Action(() => UpdatePointValue(tag, value, quality, timestamp)));
+                this.BeginInvoke(new Action(() => UpdatePointValue(tag, value, quality, resultID, timestamp)));
                 return;
             }
             row.Value = value;
             row.Quality = quality ?? row.Quality;
+            row.ResultID = resultID ?? string.Empty;
             row.Timestamp = timestamp == default ? DateTime.Now : timestamp;
             row.LastChanged = DateTime.Now;
-            // 局部刷新本行
-            var index = pointRows.IndexOf(row);
-            if (index >= 0)
+            
+            // 如果当前有筛选，检查该行是否在显示列表中，如果是则刷新
+            var displayDataSource = pointsGrid.DataSource as BindingList<PointRow>;
+            if (displayDataSource != null && displayDataSource.Contains(row))
             {
-                pointsGrid.InvalidateRow(index);
+                var index = displayDataSource.IndexOf(row);
+                if (index >= 0)
+                {
+                    pointsGrid.InvalidateRow(index);
+                }
             }
+            else if (displayDataSource == null || displayDataSource.Count == pointRows.Count)
+            {
+                // 如果没有筛选或显示全部，直接刷新对应行
+                var index = pointRows.IndexOf(row);
+                if (index >= 0)
+                {
+                    pointsGrid.InvalidateRow(index);
+                }
+            }
+            
+            // 筛选条件可能已改变（如质量变化），重新应用筛选
+            if (qualityComboBox != null && qualityComboBox.SelectedItem?.ToString() != "全部")
+            {
+                ApplyFilter();
+            }
+        }
+
+        /// <summary>
+        /// 应用筛选条件
+        /// </summary>
+        private void ApplyFilter()
+        {
+            if (pointRows == null || pointsGrid == null) return;
+
+            // 创建筛选视图（使用BindingList的过滤功能）
+            var filteredList = new List<PointRow>();
+            
+            string filterText = filterTextBox?.Text?.Trim() ?? string.Empty;
+            string qualityFilter = qualityComboBox?.SelectedItem?.ToString() ?? "全部";
+
+            foreach (var row in pointRows)
+            {
+                // 文本筛选：匹配 Tag 或 Code
+                bool textMatch = string.IsNullOrEmpty(filterText) ||
+                    (row.Tag != null && row.Tag.IndexOf(filterText, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (row.Code != null && row.Code.IndexOf(filterText, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                // 质量筛选
+                bool qualityMatch = qualityFilter == "全部" ||
+                    string.Equals(row.Quality, qualityFilter, StringComparison.OrdinalIgnoreCase);
+
+                if (textMatch && qualityMatch)
+                {
+                    filteredList.Add(row);
+                }
+            }
+
+            // 更新数据源（保持绑定关系）
+            var currentDataSource = pointsGrid.DataSource as BindingList<PointRow>;
+            if (currentDataSource == null)
+            {
+                // 首次绑定，创建新的BindingList
+                var filteredBindingList = new BindingList<PointRow>(filteredList);
+                pointsGrid.DataSource = filteredBindingList;
+            }
+            else
+            {
+                // 更新现有数据源（先清除再添加，保持引用）
+                currentDataSource.Clear();
+                foreach (var row in filteredList)
+                {
+                    currentDataSource.Add(row);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 筛选文本框文本变化事件（实时筛选）
+        /// </summary>
+        private void FilterTextBox_TextChanged(object sender, EventArgs e)
+        {
+            ApplyFilter();
+        }
+
+        /// <summary>
+        /// 筛选文本框按键事件（回车应用筛选）
+        /// </summary>
+        private void FilterTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                ApplyFilter();
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// 质量筛选下拉框变化事件
+        /// </summary>
+        private void QualityComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            ApplyFilter();
+        }
+
+        /// <summary>
+        /// 应用筛选按钮点击事件
+        /// </summary>
+        private void BtnApplyFilter_Click(object sender, EventArgs e)
+        {
+            ApplyFilter();
+        }
+
+        /// <summary>
+        /// 清除筛选按钮点击事件
+        /// </summary>
+        private void BtnClearFilter_Click(object sender, EventArgs e)
+        {
+            if (filterTextBox != null)
+                filterTextBox.Text = string.Empty;
+            if (qualityComboBox != null)
+                qualityComboBox.SelectedIndex = 0;
+            ApplyFilter();
         }
 
         /// <summary>
@@ -1145,6 +1328,7 @@ namespace OpcDAToMSA.UI.Forms
             ApplicationEvents.ServiceStatusChanged += OnServiceStatusChanged;
             ApplicationEvents.MetricsUpdated += OnMetricsUpdated;
             ApplicationEvents.LogMessageReceived += OnLogMessageReceived;
+            ApplicationEvents.OpcDataUpdated += OnOpcDataUpdated;
         }
 
         /// <summary>
@@ -1157,6 +1341,7 @@ namespace OpcDAToMSA.UI.Forms
             ApplicationEvents.ServiceStatusChanged -= OnServiceStatusChanged;
             ApplicationEvents.MetricsUpdated -= OnMetricsUpdated;
             ApplicationEvents.LogMessageReceived -= OnLogMessageReceived;
+            ApplicationEvents.OpcDataUpdated -= OnOpcDataUpdated;
         }
 
         /// <summary>
@@ -1288,6 +1473,28 @@ namespace OpcDAToMSA.UI.Forms
             {
                 // 避免日志循环，这里不记录日志
                 Console.WriteLine($"处理日志消息事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// OPC数据更新事件处理
+        /// </summary>
+        private void OnOpcDataUpdated(object sender, OpcDataUpdatedEventArgs e)
+        {
+            try
+            {
+                if (this.InvokeRequired)
+                {
+                    this.BeginInvoke(new Action(() => OnOpcDataUpdated(sender, e)));
+                    return;
+                }
+
+                // 调用UpdatePointValue更新数据视图
+                UpdatePointValue(e.Tag, e.Value, e.Quality, e.ResultID, e.Timestamp);
+            }
+            catch (Exception ex)
+            {
+                LoggerUtil.log.Error(ex, $"处理OPC数据更新事件失败: Tag={e?.Tag}");
             }
         }
 

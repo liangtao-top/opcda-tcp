@@ -8,6 +8,7 @@ namespace OpcDAToMSA.UI.Forms
         public string Code { get; set; }
         public object Value { get; set; }
         public string Quality { get; set; }
+        public string ResultID { get; set; }
         public DateTime Timestamp { get; set; }
         public DateTime LastChanged { get; set; }
     }

@@ -3,6 +3,7 @@ using OpcDAToMSA.Protocols;
 using OpcDAToMSA.Configuration;
 // using OpcDAToMSA.Monitoring;
 using OpcDAToMSA.Utils;
+using OpcDAToMSA.Events;
 using Opc.Da;
 using System;
 using System.Linq;
@@ -261,6 +262,39 @@ namespace OpcDAToMSA.Services
                             {
                                 // 发送数据到协议路由器（转发到MQTT等）
                                 await SendDataAsync(data);
+                                
+                                // 触发UI更新事件
+                                foreach (var item in data)
+                                {
+                                    if (item != null && !string.IsNullOrEmpty(item.ItemName))
+                                    {
+                                        string quality = "N/A";
+                                        if (item.Quality != null)
+                                        {
+                                            if (item.Quality == Opc.Da.Quality.Good)
+                                                quality = "Good";
+                                            else if (item.Quality == Opc.Da.Quality.Bad)
+                                                quality = "Bad";
+                                            else
+                                                quality = item.Quality.ToString();
+                                        }
+                                        
+                                        // 获取ResultID字符串表示
+                                        string resultID = string.Empty;
+                                        if (item.ResultID != null)
+                                        {
+                                            resultID = item.ResultID.ToString();
+                                        }
+                                        
+                                        ApplicationEvents.OnOpcDataUpdated(
+                                            item.ItemName,
+                                            item.Value,
+                                            quality,
+                                            resultID,
+                                            item.Timestamp != default ? item.Timestamp : DateTime.Now
+                                        );
+                                    }
+                                }
                             }
                             else
                             {

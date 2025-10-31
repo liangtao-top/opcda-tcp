@@ -387,18 +387,18 @@ namespace OpcDAToMSA.UI.Forms
                 case "sys.proc.memory.mb": return "内存(MB)";
                 case "sys.disk.c.free.percent": return "磁盘可用(%)";
                 case "sys.disk.c.free.gb": return "磁盘可用(GB)";
-                case "opc.connected": return "OPC-连接";
-                case "opc.reconnect.count": return "OPC-重连次数";
+                case "opc.connected": return "OPC连接状态";
+                case "opc.reconnect.count": return "OPC重连次数";
             }
             if (metric.EndsWith(".connected", StringComparison.OrdinalIgnoreCase))
             {
                 var prefix = metric.Split('.')[0];
-                return $"{prefix.ToUpper()}-连接";
+                return $"{prefix.ToUpper()}连接状态";
             }
             if (metric.EndsWith(".reconnect.count", StringComparison.OrdinalIgnoreCase))
             {
                 var prefix = metric.Split('.')[0];
-                return $"{prefix.ToUpper()}-重连次数";
+                return $"{prefix.ToUpper()}重连次数";
             }
             return metric;
         }

@@ -55,10 +55,13 @@ namespace OpcDAToMSA.UI.Forms
                 var buffered = ApplicationEvents.GetBufferedLogs();
                 if (buffered != null && buffered.Length > 0)
                 {
+                    // ShowContent 方法会自动递增 _currentLineCount
+                    // 所以这里只需要确保计数器从 0 开始（已经是 0，所以不需要额外初始化）
                     foreach (var line in buffered)
                     {
                         ShowContent(line);
                     }
+                    // ShowContent 已经在每次追加时递增了计数器，所以这里不需要再次设置
                 }
             }
             catch { }
@@ -112,6 +115,7 @@ namespace OpcDAToMSA.UI.Forms
         private const int MaxDisplayLines = 3000;
         private const int TrimBlockSize = 100; // 超限时成块裁剪，避免频繁重排
         private bool autoScrollEnabled = true;
+        private int _currentLineCount = 0; // 本地行计数器，避免频繁访问 Lines.Length（性能优化）
 
         // 点位表格相关
         private DataGridView pointsGrid;
@@ -505,7 +509,8 @@ namespace OpcDAToMSA.UI.Forms
 
         private bool IsAtBottom()
         {
-            if (logTextBox == null || logTextBox.Lines.Length == 0) return true;
+            // 使用本地计数器替代 Lines.Length，避免性能瓶颈
+            if (logTextBox == null || _currentLineCount == 0) return true;
             
             try
             {
@@ -574,22 +579,42 @@ namespace OpcDAToMSA.UI.Forms
             bool hasSelection = savedSelectionLength > 0;
 
             // 容量控制：超过上限成块删除头部
-            if (logTextBox.Lines.Length >= MaxDisplayLines)
+            // 使用本地计数器，避免访问 Lines.Length（性能优化）
+            if (_currentLineCount >= MaxDisplayLines)
             {
                 // 计算需要删除的行数
-                int removeCount = Math.Min(TrimBlockSize, logTextBox.Lines.Length);
-                // 找到第 removeCount 行的起始位置
+                int removeCount = Math.Min(TrimBlockSize, _currentLineCount);
+                
+                // 优化：只在需要删除时访问一次 Lines 数组，而不是循环遍历 Text
+                // 计算前 removeCount 行的总字符数（包括换行符）
                 int startIndex = 0;
-                if (removeCount < logTextBox.Lines.Length)
+                if (removeCount < _currentLineCount)
                 {
-                    // 计算前 removeCount 行的总字符数（包括换行符）
-                    int lineIndex = 0;
-                    for (int i = 0; i < logTextBox.TextLength && lineIndex < removeCount; i++)
+                    // 使用 Lines 数组来计算起始位置（比循环遍历 Text 快得多）
+                    string[] lines = logTextBox.Lines;
+                    if (lines != null && removeCount < lines.Length)
                     {
-                        if (logTextBox.Text[i] == '\n')
+                        // 计算前 removeCount 行的总字符数
+                        for (int i = 0; i < removeCount; i++)
                         {
-                            lineIndex++;
-                            startIndex = i + 1;
+                            if (i < lines.Length)
+                            {
+                                startIndex += lines[i].Length + Environment.NewLine.Length;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 如果 Lines 数组不可用，回退到原来的方法（但这种情况应该很少）
+                        int lineIndex = 0;
+                        string text = logTextBox.Text;
+                        for (int i = 0; i < text.Length && lineIndex < removeCount; i++)
+                        {
+                            if (text[i] == '\n')
+                            {
+                                lineIndex++;
+                                startIndex = i + 1;
+                            }
                         }
                     }
                 }
@@ -605,6 +630,17 @@ namespace OpcDAToMSA.UI.Forms
                     logTextBox.SelectionStart = 0;
                     logTextBox.SelectionLength = startIndex;
                     logTextBox.SelectedText = string.Empty;
+                    
+                    // 更新行计数器（减少删除的行数）
+                    // 如果删除全部，计数器设为0；否则减去删除的行数
+                    if (removeCount >= _currentLineCount)
+                    {
+                        _currentLineCount = 0;
+                    }
+                    else
+                    {
+                        _currentLineCount -= removeCount;
+                    }
                     
                     // 如果用户有选择且选择区域被删除，清除选择状态
                     if (hasSelection && savedSelectionStart < startIndex)
@@ -639,6 +675,9 @@ namespace OpcDAToMSA.UI.Forms
                 logTextBox.SelectionColor = logColor;
                 logTextBox.AppendText(content);
                 logTextBox.AppendText(Environment.NewLine);
+                
+                // 更新行计数器（追加了一行）
+                _currentLineCount++;
             }
             else
             {
@@ -676,6 +715,9 @@ namespace OpcDAToMSA.UI.Forms
                     logTextBox.SelectionColor = logColor;
                     logTextBox.AppendText(content);
                     logTextBox.AppendText(Environment.NewLine);
+                    
+                    // 更新行计数器（追加了一行）
+                    _currentLineCount++;
                     
                     // 恢复滚动位置：使用锚点字符来恢复可见区域顶部
                     if (!actuallyAtBottom)

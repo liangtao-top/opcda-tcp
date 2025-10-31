@@ -86,7 +86,7 @@ namespace OpcDAToMSA.UI.Forms
             this.tabPageLog.Controls.Add(this.panelCenter);
             this.tabPageLog.Location = new System.Drawing.Point(4, 22);
             this.tabPageLog.Name = "tabPageLog";
-            this.tabPageLog.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageLog.Padding = new System.Windows.Forms.Padding(0);
             this.tabPageLog.Size = new System.Drawing.Size(525, 249);
             this.tabPageLog.TabIndex = 0;
             this.tabPageLog.Text = "运行日志";
@@ -117,10 +117,10 @@ namespace OpcDAToMSA.UI.Forms
             // panelCenter
             // 
             this.panelCenter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelCenter.Location = new System.Drawing.Point(3, 3);
-            this.panelCenter.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.panelCenter.Location = new System.Drawing.Point(0, 0);
+            this.panelCenter.Margin = new System.Windows.Forms.Padding(0);
             this.panelCenter.Name = "panelCenter";
-            this.panelCenter.Size = new System.Drawing.Size(519, 243);
+            this.panelCenter.Size = new System.Drawing.Size(525, 249);
             this.panelCenter.TabIndex = 100;
             // 
             // panelBottom

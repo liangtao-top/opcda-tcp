@@ -55,13 +55,11 @@ namespace OpcDAToMSA.UI.Forms
                 var buffered = ApplicationEvents.GetBufferedLogs();
                 if (buffered != null && buffered.Length > 0)
                 {
-                    // ShowContent 方法会自动递增 _currentLineCount
-                    // 所以这里只需要确保计数器从 0 开始（已经是 0，所以不需要额外初始化）
+                    // ShowContent 方法会自动递增 _currentLineCount 和 _totalLineCount
                     foreach (var line in buffered)
                     {
                         ShowContent(line);
                     }
-                    // ShowContent 已经在每次追加时递增了计数器，所以这里不需要再次设置
                 }
             }
             catch { }
@@ -112,10 +110,12 @@ namespace OpcDAToMSA.UI.Forms
 
         // 实时日志逐项渲染（RichTextBox，支持文本选择和复制）
         private RichTextBox logTextBox;
+        private Label logLineCountLabel; // 日志行数统计标签（右上角浮层）
         private const int MaxDisplayLines = 3000;
         private const int TrimBlockSize = 100; // 超限时成块裁剪，避免频繁重排
         private bool autoScrollEnabled = true;
-        private int _currentLineCount = 0; // 本地行计数器，避免频繁访问 Lines.Length（性能优化）
+        private int _currentLineCount = 0; // 当前RichTextBox中显示的行数（本地行计数器，避免频繁访问 Lines.Length）
+        private int _totalLineCount = 0; // 日志总行数（所有接收到的日志，包括已删除的）
 
         // 点位表格相关
         private DataGridView pointsGrid;
@@ -162,6 +162,103 @@ namespace OpcDAToMSA.UI.Forms
             // 添加到中心面板并置顶
             this.panelCenter.Controls.Add(logTextBox);
             logTextBox.BringToFront();
+            
+            // 创建并初始化日志行数统计标签（右上角浮层）
+            EnsureLogLineCountLabel();
+        }
+        
+        /// <summary>
+        /// 初始化日志行数统计标签（右上角浮层）
+        /// </summary>
+        private void EnsureLogLineCountLabel()
+        {
+            if (logLineCountLabel != null) return;
+            
+            logLineCountLabel = new Label();
+            
+            // 基础属性设置
+            logLineCountLabel.AutoSize = false;
+            logLineCountLabel.TextAlign = ContentAlignment.MiddleRight;
+            
+            // 背景设置为和RichTextBox一样的黑色
+            logLineCountLabel.BackColor = Color.Black;
+            logLineCountLabel.ForeColor = Color.LightGray;
+            logLineCountLabel.BorderStyle = BorderStyle.None;
+            logLineCountLabel.Font = new Font("Consolas", 9F, FontStyle.Regular); // 等宽字体
+            
+            // 位置和大小：右上角，避开滚动条（滚动条宽度约17-20px）
+            // 宽度增加以容纳滚动位置信息（例如：5,234/3,000 | 85%）
+            logLineCountLabel.Size = new Size(180, 22);
+            logLineCountLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right; // 锚定右上角
+            
+            // 初始文本
+            UpdateLogLineCountLabel();
+            
+            // 将标签添加到 panelCenter（不是 logTextBox）
+            this.panelCenter.Controls.Add(logLineCountLabel);
+            logLineCountLabel.BringToFront();
+            
+            // 监听 panelCenter 的大小变化，更新标签位置（避开滚动条）
+            // 避开右侧滚动条，滚动条宽度约18px，加上间距5px
+            const int scrollBarWidth = 18;
+            const int marginRight = 5;
+            
+            this.panelCenter.Resize += (s, e) =>
+            {
+                if (logLineCountLabel != null)
+                {
+                    logLineCountLabel.Location = new Point(
+                        panelCenter.Width - logLineCountLabel.Width - scrollBarWidth - marginRight,
+                        5 // 距离顶部 5px
+                    );
+                }
+            };
+            
+            // 初始化位置（避开滚动条）
+            logLineCountLabel.Location = new Point(
+                panelCenter.Width - logLineCountLabel.Width - scrollBarWidth - marginRight,
+                5
+            );
+        }
+        
+        /// <summary>
+        /// 更新日志行数标签文本（实时精确显示，包含滚动条位置）
+        /// </summary>
+        private void UpdateLogLineCountLabel()
+        {
+            if (logLineCountLabel != null && logTextBox != null)
+            {
+                // 获取滚动条位置信息
+                string scrollInfo = GetScrollPositionInfo();
+                
+                // 显示格式：总行数/当前行数 | 锁定行号（例如：5,234/3,000 | L:1,234）
+                logLineCountLabel.Text = $"{_totalLineCount:N0}/{_currentLineCount:N0} | {scrollInfo}";
+            }
+        }
+        
+        /// <summary>
+        /// 获取滚动条位置信息（显示可见的第一行行号）
+        /// </summary>
+        private string GetScrollPositionInfo()
+        {
+            if (logTextBox == null || logTextBox.Handle == IntPtr.Zero)
+            {
+                return "L:0";
+            }
+            
+            try
+            {
+                // 使用 EM_GETFIRSTVISIBLELINE 获取可见的第一行行号（从0开始）
+                IntPtr result = SendMessage(logTextBox.Handle, EM_GETFIRSTVISIBLELINE, IntPtr.Zero, IntPtr.Zero);
+                int firstVisibleLine = result.ToInt32();
+                
+                // 行号从1开始显示（用户友好）
+                return $"L:{firstVisibleLine + 1}";
+            }
+            catch
+            {
+                return "L:?";
+            }
         }
 
         /// <summary>
@@ -507,6 +604,9 @@ namespace OpcDAToMSA.UI.Forms
             }
         }
 
+        /// <summary>
+        /// 检查是否在底部
+        /// </summary>
         private bool IsAtBottom()
         {
             // 使用本地计数器替代 Lines.Length，避免性能瓶颈
@@ -580,6 +680,7 @@ namespace OpcDAToMSA.UI.Forms
 
             // 容量控制：超过上限成块删除头部
             // 使用本地计数器，避免访问 Lines.Length（性能优化）
+            // 注意：在追加之前检查，如果已达到或超过上限，先删除再追加
             if (_currentLineCount >= MaxDisplayLines)
             {
                 // 计算需要删除的行数
@@ -642,6 +743,9 @@ namespace OpcDAToMSA.UI.Forms
                         _currentLineCount -= removeCount;
                     }
                     
+                    // 更新行数标签
+                    UpdateLogLineCountLabel();
+                    
                     // 如果用户有选择且选择区域被删除，清除选择状态
                     if (hasSelection && savedSelectionStart < startIndex)
                     {
@@ -678,6 +782,8 @@ namespace OpcDAToMSA.UI.Forms
                 
                 // 更新行计数器（追加了一行）
                 _currentLineCount++;
+                _totalLineCount++; // 总行数也递增
+                UpdateLogLineCountLabel();
             }
             else
             {
@@ -718,6 +824,7 @@ namespace OpcDAToMSA.UI.Forms
                     
                     // 更新行计数器（追加了一行）
                     _currentLineCount++;
+                    _totalLineCount++; // 总行数也递增
                     
                     // 恢复滚动位置：使用锚点字符来恢复可见区域顶部
                     if (!actuallyAtBottom)
@@ -759,6 +866,9 @@ namespace OpcDAToMSA.UI.Forms
                     SendMessage(logTextBox.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
                     logTextBox.ResumeLayout(false);
                     logTextBox.Invalidate();
+                    
+                    // 更新行数标签（在 finally 块中，确保即使出错也更新）
+                    UpdateLogLineCountLabel();
                 }
             }
 
@@ -826,7 +936,24 @@ namespace OpcDAToMSA.UI.Forms
         [DllImport("user32.dll")]
         private static extern int SetScrollPos(IntPtr hWnd, int nBar, int nPos, bool bRedraw);
         
+        [DllImport("user32.dll")]
+        private static extern bool GetScrollInfo(IntPtr hwnd, int fnBar, ref SCROLLINFO lpsi);
+        
+        private struct SCROLLINFO
+        {
+            public uint cbSize;
+            public uint fMask;
+            public int nMin;
+            public int nMax;
+            public uint nPage;
+            public int nPos;
+            public int nTrackPos;
+        }
+        
         private const int SB_VERT = 1; // 垂直滚动条
+        private const int SIF_ALL = 0x0017; // 获取所有滚动信息（位置、范围、页面大小）
+        private const int SIF_POS = 0x0004; // 获取位置
+        private const int SIF_RANGE = 0x0001; // 获取范围
         private const uint WM_CONTEXTMENU = 0x007B;
         private const int EM_CONTEXTMENU = 0x0315;
         private const uint EM_SETSEL = 0x00B1;

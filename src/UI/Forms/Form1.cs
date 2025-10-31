@@ -643,21 +643,37 @@ namespace OpcDAToMSA.UI.Forms
             else
             {
                 // 保持当前位置，在末尾追加文本（不改变选择位置和滚动位置）
+                // 使用 SuspendLayout 暂停布局更新，避免滚动闪烁
                 int appendStart = logTextBox.TextLength;
-                // 临时保存选择位置
-                int tempSelectionStart = logTextBox.SelectionStart;
-                int tempSelectionLength = logTextBox.SelectionLength;
                 
-                // 临时移动到末尾追加
-                logTextBox.SelectionStart = appendStart;
-                logTextBox.SelectionLength = 0;
-                logTextBox.SelectionColor = logColor;
-                logTextBox.AppendText(content);
-                logTextBox.AppendText(Environment.NewLine);
+                // 保存当前选择位置和滚动位置
+                int currentStart = logTextBox.SelectionStart;
+                int currentLength = logTextBox.SelectionLength;
                 
-                // 立即恢复原来的选择位置和滚动位置
-                logTextBox.SelectionStart = tempSelectionStart;
-                logTextBox.SelectionLength = tempSelectionLength;
+                // 暂停布局和重绘更新
+                logTextBox.SuspendLayout();
+                SendMessage(logTextBox.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+                
+                try
+                {
+                    // 移动到末尾追加（在暂停更新时进行，不会触发可见的滚动）
+                    logTextBox.SelectionStart = appendStart;
+                    logTextBox.SelectionLength = 0;
+                    logTextBox.SelectionColor = logColor;
+                    logTextBox.AppendText(content);
+                    logTextBox.AppendText(Environment.NewLine);
+                    
+                    // 立即恢复位置（仍在暂停更新中，不会触发可见的滚动）
+                    logTextBox.SelectionStart = currentStart;
+                    logTextBox.SelectionLength = currentLength;
+                }
+                finally
+                {
+                    // 恢复重绘和布局
+                    SendMessage(logTextBox.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
+                    logTextBox.ResumeLayout(false); // false = 不执行挂起时积压的布局更新
+                    logTextBox.Invalidate(); // 触发一次重绘
+                }
             }
 
             // 恢复用户的选择状态（如果存在且未被删除）
@@ -729,8 +745,14 @@ namespace OpcDAToMSA.UI.Forms
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
         
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, string lParam);
+        
         private const uint WM_CONTEXTMENU = 0x007B;
         private const int EM_CONTEXTMENU = 0x0315;
+        private const uint EM_SETSEL = 0x00B1;
+        private const uint EM_REPLACESEL = 0x00C2;
+        private const uint WM_SETREDRAW = 0x000B;
         enum DeviceCap
         {
             VERTRES = 10,

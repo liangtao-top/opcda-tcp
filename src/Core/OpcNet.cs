@@ -42,6 +42,7 @@ namespace OpcDAToMSA.Core
         private bool runing = true;
         private URL discoveredServerUrl = null;
         private bool? supportsBrowseTo = null; // 缓存服务器是否支持BROWSE_TO
+        private bool enumerationSkipped = false; // 标记是否因接口不兼容而跳过了枚举
 
         #endregion
 
@@ -90,8 +91,12 @@ namespace OpcDAToMSA.Core
                 URL url;
                 if (isLocalConnection)
                 {
-                    if (!GetLocalServers(config.Opcda.Node))
+                    bool serverAvailable = GetLocalServers(config.Opcda.Node);
+                    
+                    if (!serverAvailable && !enumerationSkipped)
                     {
+                        // 只有在枚举成功但未找到服务器时才报错
+                        // 如果枚举被跳过（接口不兼容），允许尝试直接连接
                         LoggerUtil.log.Error($"本地OPC服务器 '{config.Opcda.Node}' 不可用");
                         LoggerUtil.log.Error("请检查以下项目:");
                         LoggerUtil.log.Error("1. 是否安装了OPC服务器软件");
@@ -103,16 +108,35 @@ namespace OpcDAToMSA.Core
                         return Task.FromResult(false);
                     }
                     
-                    // 使用发现的服务器URL而不是构建的URL
+                    // 使用发现的服务器URL，如果枚举被跳过则使用降级模式构建的URL
                     if (discoveredServerUrl == null)
                     {
-                        LoggerUtil.log.Error("未发现服务器URL，无法连接");
-                        OnConnectionStatusChanged(false);
-                        ApplicationEvents.OnOpcConnectionChanged(false, "未发现服务器URL");
-                        return Task.FromResult(false);
+                        if (enumerationSkipped)
+                        {
+                            // 枚举被跳过，使用配置构建URL
+                            url = new URL($"opcda://localhost/{config.Opcda.Node}");
+                            LoggerUtil.log.Information($"使用降级模式构建的URL: {url}");
+                        }
+                        else
+                        {
+                            LoggerUtil.log.Error("未发现服务器URL，无法连接");
+                            OnConnectionStatusChanged(false);
+                            ApplicationEvents.OnOpcConnectionChanged(false, "未发现服务器URL");
+                            return Task.FromResult(false);
+                        }
                     }
-                    url = discoveredServerUrl;
-                    LoggerUtil.log.Information($"使用发现的服务器URL: {discoveredServerUrl}");
+                    else
+                    {
+                        url = discoveredServerUrl;
+                        if (enumerationSkipped)
+                        {
+                            LoggerUtil.log.Information($"使用降级模式URL: {url}");
+                        }
+                        else
+                        {
+                            LoggerUtil.log.Information($"使用发现的服务器URL: {url}");
+                        }
+                    }
                 }
                 else
                 {
@@ -534,6 +558,7 @@ namespace OpcDAToMSA.Core
                         LoggerUtil.log.Information($"✅ 找到目标服务器: {foundServer.Name}");
                         LoggerUtil.log.Information($"   实际服务器名称: {foundServer.Name}");
                         LoggerUtil.log.Information($"   服务器URL: {foundServer.Url}");
+                        enumerationSkipped = false;
                         return true;
                     }
                     else
@@ -555,6 +580,35 @@ namespace OpcDAToMSA.Core
                     LoggerUtil.log.Error("1. OPC服务器是否已安装并运行");
                     LoggerUtil.log.Error("2. OPC服务器服务是否启动");
                     LoggerUtil.log.Error("3. 防火墙是否阻止OPC通信");
+                    return false;
+                }
+            }
+            catch (System.InvalidCastException ex) when (
+                ex.Message.Contains("IOPCServerList2") || 
+                ex.Message.Contains("E_NOINTERFACE") ||
+                ex.HResult == unchecked((int)0x80004002))
+            {
+                // IOPCServerList2 接口不支持，降级处理：直接使用服务器名称构建URL
+                LoggerUtil.log.Warning($"OPC服务器枚举失败（接口不兼容）: {ex.Message}");
+                LoggerUtil.log.Warning("检测到服务器可能只支持旧版OPC接口（IOPCServerList），降级为直接连接模式");
+                
+                // 尝试直接使用配置的服务器名称构建URL（跳过枚举验证）
+                try
+                {
+                    var config = configurationService.GetConfiguration();
+                    var fallbackUrl = new URL($"opcda://localhost/{targetServerName}");
+                    discoveredServerUrl = fallbackUrl;
+                    enumerationSkipped = true;
+                    
+                    LoggerUtil.log.Information($"降级模式：将直接尝试连接服务器 '{targetServerName}'");
+                    LoggerUtil.log.Information($"构建的URL: {fallbackUrl}");
+                    LoggerUtil.log.Warning("注意：由于无法枚举服务器列表，无法验证服务器是否存在");
+                    
+                    return true; // 允许尝试连接
+                }
+                catch (Exception fallbackEx)
+                {
+                    LoggerUtil.log.Error(fallbackEx, "降级处理失败，无法构建服务器URL");
                     return false;
                 }
             }

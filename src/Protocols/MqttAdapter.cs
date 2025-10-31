@@ -105,15 +105,39 @@ namespace OpcDAToMSA.Protocols
                 var factory = new MqttFactory();
                 this.mqttClient = factory.CreateMqttClient();
 
+                // 订阅断开事件，监控连接状态变化
+                mqttClient.DisconnectedAsync += async e =>
+                {
+                    if (e.ClientWasConnected)
+                    {
+                        LoggerUtil.log.Warning($"MQTT 客户端检测到连接断开 - 原因: {e.Reason}, 异常: {e.Exception?.Message ?? "无"}");
+                        LoggerUtil.log.Debug($"MQTT 断开详情 - ClientWasConnected: {e.ClientWasConnected}, ReasonString: {e.ReasonString}");
+                        ApplicationEvents.OnMsaConnectionChanged(false, $"MQTT连接断开: {e.Reason}");
+                    }
+                };
+
                 // 配置客户端选项
                 var options = CreateMqttClientOptions();
 
                 // 连接到 MQTT Broker
                 await mqttClient.ConnectAsync(options);
 
-                LoggerUtil.log.Information($"MQTT 适配器连接成功：{brokerHost}:{brokerPort}");
-                ApplicationEvents.OnMsaConnectionChanged(true, "MQTT连接成功");
-                return true;
+                // 连接后验证状态
+                bool actuallyConnected = mqttClient?.IsConnected ?? false;
+                string statusText = actuallyConnected ? "成功" : "失败";
+                LoggerUtil.log.Information($"MQTT 适配器连接{statusText}：{brokerHost}:{brokerPort}，连接状态验证: {actuallyConnected}");
+                
+                if (actuallyConnected)
+                {
+                    ApplicationEvents.OnMsaConnectionChanged(true, "MQTT连接成功");
+                    return true;
+                }
+                else
+                {
+                    LoggerUtil.log.Warning("MQTT 连接返回成功，但连接状态检查失败");
+                    ApplicationEvents.OnMsaConnectionChanged(false, "MQTT连接状态验证失败");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
@@ -132,8 +156,16 @@ namespace OpcDAToMSA.Protocols
         {
             try
             {
-                if (!this.IsEnabled || !this.IsConnected)
+                // 详细检查连接状态
+                bool currentStatus = this.IsConnected;
+                if (!this.IsEnabled)
                 {
+                    LoggerUtil.log.Debug("MQTT 适配器已禁用，跳过发送");
+                    return false;
+                }
+                if (!currentStatus)
+                {
+                    LoggerUtil.log.Debug($"MQTT 适配器未连接，跳过发送。mqttClient状态: {mqttClient != null}, IsConnected: {mqttClient?.IsConnected ?? false}");
                     return false;
                 }
 

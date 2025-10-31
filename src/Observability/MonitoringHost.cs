@@ -63,6 +63,8 @@ namespace OpcDAToMSA.Observability
         private int backoffMs = 2000;
         private readonly int maxBackoffMs = 15000;
         public int ReconnectAttempts { get; private set; } = 0;
+        private bool isReconnecting = false; // 标记是否正在重连，避免重复触发
+        private DateTime lastReconnectAttempt = DateTime.MinValue; // 上次重连尝试时间
 
         public AdapterReconnectMonitor(string name, Func<bool> isConnected, Func<Task<bool>> reconnectAsync)
         {
@@ -81,35 +83,77 @@ namespace OpcDAToMSA.Observability
             {
                 LastOk = DateTime.Now;
                 backoffMs = 2000;
+                isReconnecting = false; // 连接成功后重置标记
                 return;
             }
             if (!allowReconnect)
             {
                 return;
             }
+            
+            // 如果正在重连，或距离上次重连尝试不足2秒，跳过本次检查（避免重复触发）
+            if (isReconnecting)
+            {
+                return;
+            }
+            
+            // 防止在重连过程中的短暂断开被误判为新的断开
+            var timeSinceLastAttempt = DateTime.Now - lastReconnectAttempt;
+            if (timeSinceLastAttempt.TotalSeconds < 2)
+            {
+                return;
+            }
+            
             try
             {
+                isReconnecting = true; // 标记开始重连
+                lastReconnectAttempt = DateTime.Now;
+                
                 LoggerUtil.log.Warning($"协议 {Name} 连接断开，开始重连（第{ReconnectAttempts + 1}次，backoff={backoffMs}ms）");
                 ReconnectAttempts++;
                 var ok = await reconnectAsync().ConfigureAwait(false);
+                
+                // 重连完成后，即使返回成功，也要验证连接状态（因为连接状态可能延迟更新）
                 if (ok)
                 {
-                    LastOk = DateTime.Now;
-                    backoffMs = 2000;
-                    LoggerUtil.log.Information($"协议 {Name} 重连成功（累计尝试 {ReconnectAttempts} 次）");
+                    // 给连接状态一点时间更新（等待100ms后再次检查）
+                    try { await Task.Delay(100, token).ConfigureAwait(false); } catch { }
+                    
+                    // 再次检查连接状态，确保真的连接成功
+                    if (IsConnected)
+                    {
+                        LastOk = DateTime.Now;
+                        backoffMs = 2000;
+                        isReconnecting = false; // 确认连接成功后才重置标记
+                        LoggerUtil.log.Information($"协议 {Name} 重连成功（累计尝试 {ReconnectAttempts} 次）");
+                        return; // 连接成功，立即返回，不执行后续延迟
+                    }
+                    else
+                    {
+                        // 重连返回成功，但连接状态检查失败，可能是状态更新延迟
+                        LoggerUtil.log.Warning($"协议 {Name} 重连返回成功，但连接状态检查失败，等待状态同步...");
+                        // 延长防重复触发时间，给连接状态更多时间更新
+                        lastReconnectAttempt = DateTime.Now.AddSeconds(-1); // 设置1秒前，允许下次检查
+                    }
                 }
-                else
+                
+                // 如果重连失败，或连接状态检查失败，需要延迟再尝试
+                if (!ok || !IsConnected)
                 {
+                    isReconnecting = false; // 重置标记，允许下次检查
                     backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
                     LoggerUtil.log.Warning($"协议 {Name} 重连失败，退避至 {backoffMs}ms");
+                    // 重连失败后，延迟再尝试
+                    try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
                 }
             }
             catch
             {
+                isReconnecting = false; // 异常后重置标记
                 backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
                 LoggerUtil.log.Warning($"协议 {Name} 重连异常，退避至 {backoffMs}ms");
+                try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
             }
-            try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
         }
 
         public void RecordOk()
@@ -125,6 +169,8 @@ namespace OpcDAToMSA.Observability
         private int backoffMs = 2000;
         private readonly int maxBackoffMs = 15000;
         public int ReconnectAttempts { get; private set; } = 0;
+        private bool isReconnecting = false; // 标记是否正在重连，避免重复触发
+        private DateTime lastReconnectAttempt = DateTime.MinValue; // 上次重连尝试时间
 
         public OpcMonitor(string name, Func<bool> isConnected, Func<Task<bool>> reconnectAsync)
         {
@@ -143,35 +189,77 @@ namespace OpcDAToMSA.Observability
             {
                 LastOk = DateTime.Now;
                 backoffMs = 2000;
+                isReconnecting = false; // 连接成功后重置标记
                 return;
             }
             if (!allowReconnect)
             {
                 return;
             }
+            
+            // 如果正在重连，或距离上次重连尝试不足2秒，跳过本次检查（避免重复触发）
+            if (isReconnecting)
+            {
+                return;
+            }
+            
+            // 防止在重连过程中的短暂断开被误判为新的断开
+            var timeSinceLastAttempt = DateTime.Now - lastReconnectAttempt;
+            if (timeSinceLastAttempt.TotalSeconds < 2)
+            {
+                return;
+            }
+            
             try
             {
+                isReconnecting = true; // 标记开始重连
+                lastReconnectAttempt = DateTime.Now;
+                
                 LoggerUtil.log.Warning($"协议 {Name} 连接断开，开始重连（第{ReconnectAttempts + 1}次，backoff={backoffMs}ms）");
                 ReconnectAttempts++;
                 var ok = await reconnectAsync().ConfigureAwait(false);
+                
+                // 重连完成后，即使返回成功，也要验证连接状态（因为连接状态可能延迟更新）
                 if (ok)
                 {
-                    LastOk = DateTime.Now;
-                    backoffMs = 2000;
-                    LoggerUtil.log.Information($"协议 {Name} 重连成功（累计尝试 {ReconnectAttempts} 次）");
+                    // 给连接状态一点时间更新（等待100ms后再次检查）
+                    try { await Task.Delay(100, token).ConfigureAwait(false); } catch { }
+                    
+                    // 再次检查连接状态，确保真的连接成功
+                    if (IsConnected)
+                    {
+                        LastOk = DateTime.Now;
+                        backoffMs = 2000;
+                        isReconnecting = false; // 确认连接成功后才重置标记
+                        LoggerUtil.log.Information($"协议 {Name} 重连成功（累计尝试 {ReconnectAttempts} 次）");
+                        return; // 连接成功，立即返回，不执行后续延迟
+                    }
+                    else
+                    {
+                        // 重连返回成功，但连接状态检查失败，可能是状态更新延迟
+                        LoggerUtil.log.Warning($"协议 {Name} 重连返回成功，但连接状态检查失败，等待状态同步...");
+                        // 延长防重复触发时间，给连接状态更多时间更新
+                        lastReconnectAttempt = DateTime.Now.AddSeconds(-1); // 设置1秒前，允许下次检查
+                    }
                 }
-                else
+                
+                // 如果重连失败，或连接状态检查失败，需要延迟再尝试
+                if (!ok || !IsConnected)
                 {
+                    isReconnecting = false; // 重置标记，允许下次检查
                     backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
                     LoggerUtil.log.Warning($"协议 {Name} 重连失败，退避至 {backoffMs}ms");
+                    // 重连失败后，延迟再尝试
+                    try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
                 }
             }
             catch
             {
+                isReconnecting = false; // 异常后重置标记
                 backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
                 LoggerUtil.log.Warning($"协议 {Name} 重连异常，退避至 {backoffMs}ms");
+                try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
             }
-            try { await Task.Delay(backoffMs, token).ConfigureAwait(false); } catch { }
         }
 
         public void RecordOk()

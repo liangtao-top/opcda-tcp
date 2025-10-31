@@ -107,8 +107,8 @@ namespace OpcDAToMSA.UI.Forms
         //委托
         protected delegate void ShowContentDelegate(string content);
 
-        // 实时日志逐项渲染（ListBox）
-        private ListBox logListBox;
+        // 实时日志逐项渲染（RichTextBox，支持文本选择和复制）
+        private RichTextBox logTextBox;
         private const int MaxDisplayLines = 3000;
         private const int TrimBlockSize = 100; // 超限时成块裁剪，避免频繁重排
         private bool autoScrollEnabled = true;
@@ -124,44 +124,40 @@ namespace OpcDAToMSA.UI.Forms
         private readonly Dictionary<string, MetricRow> nameToMetric = new Dictionary<string, MetricRow>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// 初始化实时日志ListBox
+        /// 初始化实时日志RichTextBox（支持文本选择和复制）
         /// </summary>
-        private void EnsureLogList()
+        private void EnsureLogTextBox()
         {
-            if (logListBox != null) return;
-            logListBox = new ListBox();
-            logListBox.DrawMode = DrawMode.OwnerDrawFixed;
-            // 使用等宽字体，确保列对齐
-            try
-            {
-                logListBox.Font = new Font("Consolas", 9F);
-            }
-            catch
-            {
-                // 回退到常见等宽字体
-                logListBox.Font = new Font("Courier New", 9F);
-            }
-            // 基于字体动态设置行高，避免上下挤压
-            var lineHeight = TextRenderer.MeasureText("A", logListBox.Font).Height + 2;
-            logListBox.ItemHeight = Math.Max(16, lineHeight);
-            logListBox.BackColor = Color.Black;
-            logListBox.ForeColor = Color.LightGray;
-            logListBox.BorderStyle = BorderStyle.None;
+            if (logTextBox != null) return;
+            logTextBox = new RichTextBox();
+            
+            // 基础属性设置
+            logTextBox.BackColor = Color.Black;
+            logTextBox.ForeColor = Color.LightGray;
+            logTextBox.BorderStyle = BorderStyle.None;
+            logTextBox.ReadOnly = true; // 只读，但允许选择和复制
+            logTextBox.ShortcutsEnabled = true; // 启用快捷键（Ctrl+C等），允许系统默认菜单
+            // logTextBox.WordWrap = false; // 不自动换行，保持日志格式
+            logTextBox.DetectUrls = false; // 禁用URL检测，提升性能
+            logTextBox.HideSelection = false; // 失去焦点时仍显示选中文本
+            
+            // 确保不设置自定义菜单，以便显示系统默认右键菜单
+            logTextBox.ContextMenuStrip = null;
+            
             // 容器分区：日志放入中心面板，自动填充
-            logListBox.Dock = DockStyle.Fill;
-            logListBox.DrawItem += LogListBox_DrawItem;
-            logListBox.MouseWheel += LogListBox_MouseWheel;
-            logListBox.KeyDown += (s, e) =>
-            {
-                if (e.KeyCode == Keys.End)
-                {
-                    autoScrollEnabled = true;
-                    ScrollToBottom();
-                }
-            };
+            logTextBox.Dock = DockStyle.Fill;
+            
+            // 事件处理
+            logTextBox.MouseWheel += LogTextBox_MouseWheel;
+            logTextBox.KeyDown += LogTextBox_KeyDown;
+            // 监听键盘上下箭头和PageUp/PageDown，用户主动滚动时暂停自动滚动
+            logTextBox.KeyUp += LogTextBox_KeyUp;
+            // VScroll 事件已移除，避免与 IsAtBottom() 中的 SelectionStart 修改形成无限递归
+            // 改为在 MouseWheel 中处理自动滚动控制
+            
             // 添加到中心面板并置顶
-            this.panelCenter.Controls.Add(logListBox);
-            logListBox.BringToFront();
+            this.panelCenter.Controls.Add(logTextBox);
+            logTextBox.BringToFront();
         }
 
         /// <summary>
@@ -250,7 +246,6 @@ namespace OpcDAToMSA.UI.Forms
             grid.EnableHeadersVisualStyles = false;
             grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(0x26, 0x26, 0x26);
             grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(0xF0, 0xF0, 0xF0);
-            try { grid.ColumnHeadersDefaultCellStyle.Font = new Font("Consolas", 9F, FontStyle.Bold); } catch { }
             grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(0x1A, 0x1A, 0x1A);
             grid.DefaultCellStyle.BackColor = Color.FromArgb(0x20, 0x20, 0x20);
             grid.DefaultCellStyle.ForeColor = Color.FromArgb(0xD8, 0xD8, 0xD8);
@@ -273,7 +268,6 @@ namespace OpcDAToMSA.UI.Forms
             else if (string.Equals(quality, "Bad", StringComparison.OrdinalIgnoreCase))
             {
                 e.CellStyle.ForeColor = Color.OrangeRed;
-                e.CellStyle.Font = new Font(e.CellStyle.Font ?? this.Font, FontStyle.Bold);
             }
             else if (!string.Equals(quality, "N/A", StringComparison.OrdinalIgnoreCase))
             {
@@ -459,66 +453,228 @@ namespace OpcDAToMSA.UI.Forms
             try { metricsGrid?.ResumeLayout(false); } catch { }
         }
 
-        private void LogListBox_MouseWheel(object sender, MouseEventArgs e)
+        private void LogTextBox_MouseWheel(object sender, MouseEventArgs e)
         {
-            // 用户滚动则暂停自动滚动；当滚动回到底部再恢复
-            autoScrollEnabled = IsAtBottom();
+            // 用户滚动时，立即暂停自动滚动
+            if (e.Delta != 0)
+            {
+                autoScrollEnabled = false;
+                
+                // 延迟检查是否回到底部，如果到底部再恢复自动滚动
+                this.BeginInvoke(new Action(() =>
+                {
+                    if (IsAtBottom())
+                    {
+                        autoScrollEnabled = true;
+                    }
+                }));
+            }
+        }
+
+        private void LogTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            // Ctrl+End 快速滚动到底部并恢复自动滚动
+            if (e.KeyCode == Keys.End && e.Control)
+            {
+                autoScrollEnabled = true;
+                ScrollToBottom();
+            }
+            // 用户按上下箭头、PageUp/PageDown等滚动键时，暂停自动滚动
+            else if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || 
+                     e.KeyCode == Keys.PageUp || e.KeyCode == Keys.PageDown ||
+                     e.KeyCode == Keys.Home || e.KeyCode == Keys.End)
+            {
+                autoScrollEnabled = false;
+            }
+        }
+
+        private void LogTextBox_KeyUp(object sender, KeyEventArgs e)
+        {
+            // 滚动键释放后，检查是否回到底部
+            if (e.KeyCode == Keys.End || e.KeyCode == Keys.Down || e.KeyCode == Keys.PageDown)
+            {
+                this.BeginInvoke(new Action(() =>
+                {
+                    if (IsAtBottom())
+                    {
+                        autoScrollEnabled = true;
+                    }
+                }));
+            }
         }
 
         private bool IsAtBottom()
         {
-            if (logListBox.Items.Count == 0) return true;
-            int visible = Math.Max(1, logListBox.ClientSize.Height / Math.Max(1, logListBox.ItemHeight));
-            return logListBox.TopIndex >= Math.Max(0, logListBox.Items.Count - visible - 1);
+            if (logTextBox == null || logTextBox.Lines.Length == 0) return true;
+            
+            try
+            {
+                int textLength = logTextBox.TextLength;
+                if (textLength == 0) return true;
+                
+                // 保存当前选择状态（不修改）
+                int savedSelectionStart = logTextBox.SelectionStart;
+                int savedSelectionLength = logTextBox.SelectionLength;
+                
+                try
+                {
+                    // 方法：使用 GetCharIndexFromPosition 判断可见区域底部对应的字符位置
+                    int visibleHeight = logTextBox.ClientSize.Height;
+                    
+                    // 获取可见区域底部位置对应的字符索引
+                    Point bottomPoint = new Point(10, visibleHeight - 5); // 稍微偏离边缘，更准确
+                    int bottomCharIndex = logTextBox.GetCharIndexFromPosition(bottomPoint);
+                    
+                    // 如果底部可见字符索引接近文本末尾，认为在底部
+                    // 允许一定误差（约50个字符或文本长度的1%）
+                    int distanceToEnd = textLength - bottomCharIndex;
+                    int allowedDistance = Math.Max(50, textLength / 100);
+                    
+                    bool isAtBottom = distanceToEnd <= allowedDistance;
+                    return isAtBottom;
+                }
+                catch
+                {
+                    // 如果获取位置失败，使用简化方法：检查当前选择位置是否接近末尾
+                    // 如果当前选择在最后5%的文本范围内，认为可能在底部
+                    int currentPos = savedSelectionStart;
+                    int threshold = textLength - Math.Max(100, textLength / 20); // 至少100字符或5%
+                    return currentPos >= threshold;
+                }
+            }
+            catch
+            {
+                // 异常情况下保守判断为不在底部
+                return false;
+            }
         }
 
         private void ScrollToBottom()
         {
-            if (logListBox.Items.Count > 0)
-            {
-                logListBox.TopIndex = logListBox.Items.Count - 1;
-            }
-        }
-
-        private void LogListBox_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            e.DrawBackground();
-            if (e.Index < 0 || e.Index >= logListBox.Items.Count) return;
-            string text = logListBox.Items[e.Index]?.ToString() ?? string.Empty;
-            // 根据级别着色
-            Color color = Color.LightGray;
-            if (text.Contains("[ERR]")) color = Color.Red;
-            else if (text.Contains("[WRN]")) color = Color.Orange;
-            else if (text.Contains("[DBG]")) color = Color.Gray;
-            else if (text.Contains("[FTL]")) color = Color.DarkRed;
-            else if (text.Contains("[INF]")) color = Color.LightGreen;
-
-            using (var brush = new SolidBrush(color))
-            {
-                e.Graphics.DrawString(text, logListBox.Font, brush, e.Bounds);
-            }
-            e.DrawFocusRectangle();
+            if (logTextBox == null || logTextBox.TextLength == 0) return;
+            // 滚动到末尾
+            logTextBox.SelectionStart = logTextBox.TextLength;
+            logTextBox.SelectionLength = 0;
+            logTextBox.ScrollToCaret();
         }
 
         
 
         /// <summary>
-        /// 逐项追加一条日志
+        /// 逐项追加一条日志（使用RichTextBox，支持颜色区分和文本选择）
         /// </summary>
         private void ShowContent(string content)
         {
-            EnsureLogList();
+            EnsureLogTextBox();
             bool stickToBottom = autoScrollEnabled && IsAtBottom();
 
+            // 保存当前选择状态（避免追加时影响用户选择）
+            int savedSelectionStart = logTextBox.SelectionStart;
+            int savedSelectionLength = logTextBox.SelectionLength;
+            bool hasSelection = savedSelectionLength > 0;
+
             // 容量控制：超过上限成块删除头部
-            if (logListBox.Items.Count >= MaxDisplayLines)
+            if (logTextBox.Lines.Length >= MaxDisplayLines)
             {
-                int removeCount = Math.Min(TrimBlockSize, logListBox.Items.Count);
-                for (int i = 0; i < removeCount; i++) logListBox.Items.RemoveAt(0);
+                // 计算需要删除的行数
+                int removeCount = Math.Min(TrimBlockSize, logTextBox.Lines.Length);
+                // 找到第 removeCount 行的起始位置
+                int startIndex = 0;
+                if (removeCount < logTextBox.Lines.Length)
+                {
+                    // 计算前 removeCount 行的总字符数（包括换行符）
+                    int lineIndex = 0;
+                    for (int i = 0; i < logTextBox.TextLength && lineIndex < removeCount; i++)
+                    {
+                        if (logTextBox.Text[i] == '\n')
+                        {
+                            lineIndex++;
+                            startIndex = i + 1;
+                        }
+                    }
+                }
+                else
+                {
+                    // 删除全部
+                    startIndex = logTextBox.TextLength;
+                }
+                
+                // 删除前面的行
+                if (startIndex > 0 && startIndex < logTextBox.TextLength)
+                {
+                    logTextBox.SelectionStart = 0;
+                    logTextBox.SelectionLength = startIndex;
+                    logTextBox.SelectedText = string.Empty;
+                    
+                    // 如果用户有选择且选择区域被删除，清除选择状态
+                    if (hasSelection && savedSelectionStart < startIndex)
+                    {
+                        hasSelection = false;
+                        savedSelectionStart = 0;
+                        savedSelectionLength = 0;
+                    }
+                    else if (hasSelection && savedSelectionStart >= startIndex)
+                    {
+                        // 调整选择位置（减去删除的字符数）
+                        savedSelectionStart -= startIndex;
+                    }
+                }
             }
 
-            logListBox.Items.Add(content);
+            // 根据日志级别设置颜色
+            Color logColor = Color.LightGray; // 默认颜色
+            if (content.Contains("[ERR]")) logColor = Color.Red;
+            else if (content.Contains("[WRN]")) logColor = Color.Orange;
+            else if (content.Contains("[DBG]")) logColor = Color.Gray;
+            else if (content.Contains("[FTL]")) logColor = Color.DarkRed;
+            else if (content.Contains("[INF]")) logColor = Color.LightGreen;
 
+            // 只有在需要自动滚动时才移动到末尾，否则保持当前位置
+            if (stickToBottom)
+            {
+                // 移动到末尾追加新日志
+                int appendStart = logTextBox.TextLength;
+                logTextBox.SelectionStart = appendStart;
+                logTextBox.SelectionLength = 0;
+                logTextBox.SelectionColor = logColor;
+                logTextBox.AppendText(content);
+                logTextBox.AppendText(Environment.NewLine);
+            }
+            else
+            {
+                // 保持当前位置，在末尾追加文本（不改变选择位置和滚动位置）
+                int appendStart = logTextBox.TextLength;
+                // 临时保存选择位置
+                int tempSelectionStart = logTextBox.SelectionStart;
+                int tempSelectionLength = logTextBox.SelectionLength;
+                
+                // 临时移动到末尾追加
+                logTextBox.SelectionStart = appendStart;
+                logTextBox.SelectionLength = 0;
+                logTextBox.SelectionColor = logColor;
+                logTextBox.AppendText(content);
+                logTextBox.AppendText(Environment.NewLine);
+                
+                // 立即恢复原来的选择位置和滚动位置
+                logTextBox.SelectionStart = tempSelectionStart;
+                logTextBox.SelectionLength = tempSelectionLength;
+            }
+
+            // 恢复用户的选择状态（如果存在且未被删除）
+            if (hasSelection && savedSelectionStart < logTextBox.TextLength)
+            {
+                // 确保选择位置仍然有效
+                int maxSelectionStart = Math.Max(0, Math.Min(savedSelectionStart, logTextBox.TextLength - 1));
+                int maxSelectionLength = Math.Max(0, Math.Min(savedSelectionLength, logTextBox.TextLength - maxSelectionStart));
+                
+                if (maxSelectionLength > 0)
+                {
+                    logTextBox.SelectionStart = maxSelectionStart;
+                    logTextBox.SelectionLength = maxSelectionLength;
+                }
+            }
+
+            // 如果之前是在底部，则自动滚动到底部
             if (stickToBottom)
             {
                 ScrollToBottom();
@@ -568,6 +724,13 @@ namespace OpcDAToMSA.UI.Forms
 
         [DllImport("gdi32.dll", EntryPoint = "GetDeviceCaps", SetLastError = true)]
         public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+        // Windows API 用于显示系统默认菜单
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        
+        private const uint WM_CONTEXTMENU = 0x007B;
+        private const int EM_CONTEXTMENU = 0x0315;
         enum DeviceCap
         {
             VERTRES = 10,

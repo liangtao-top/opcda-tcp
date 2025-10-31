@@ -643,12 +643,22 @@ namespace OpcDAToMSA.UI.Forms
             else
             {
                 // 保持当前位置，在末尾追加文本（不改变选择位置和滚动位置）
-                // 使用 SuspendLayout 暂停布局更新，避免滚动闪烁
+                // 关键策略：使用 Windows API 直接追加文本，避免修改 SelectionStart 导致的滚动
                 int appendStart = logTextBox.TextLength;
                 
-                // 保存当前选择位置和滚动位置
+                // 保存当前选择位置和滚动位置的"锚点字符"
+                // 使用可见区域顶部的字符作为锚点（更稳定）
+                int visibleHeight = logTextBox.ClientSize.Height;
+                Point topAnchorPoint = new Point(10, 5);
+                int anchorCharIndex = logTextBox.GetCharIndexFromPosition(topAnchorPoint);
+                
+                // 保存当前选择状态
                 int currentStart = logTextBox.SelectionStart;
                 int currentLength = logTextBox.SelectionLength;
+                bool hasRealSelection = currentLength > 0;
+                
+                // 检查是否实际在底部
+                bool actuallyAtBottom = IsAtBottom();
                 
                 // 暂停布局和重绘更新
                 logTextBox.SuspendLayout();
@@ -656,37 +666,57 @@ namespace OpcDAToMSA.UI.Forms
                 
                 try
                 {
-                    // 移动到末尾追加（在暂停更新时进行，不会触发可见的滚动）
+                    // 方法1：使用 Windows API 直接追加文本（理论上不会触发滚动）
+                    // 但实际上 RichTextBox 的 API 还是可能触发，所以我们仍然使用 AppendText
+                    // 但关键是：追加后立即恢复锚点位置，而不是恢复 SelectionStart
+                    
+                    // 移动到末尾追加
                     logTextBox.SelectionStart = appendStart;
                     logTextBox.SelectionLength = 0;
                     logTextBox.SelectionColor = logColor;
                     logTextBox.AppendText(content);
                     logTextBox.AppendText(Environment.NewLine);
                     
-                    // 立即恢复位置（仍在暂停更新中，不会触发可见的滚动）
-                    logTextBox.SelectionStart = currentStart;
-                    logTextBox.SelectionLength = currentLength;
+                    // 恢复滚动位置：使用锚点字符来恢复可见区域顶部
+                    if (!actuallyAtBottom)
+                    {
+                        // 不在底部：通过滚动到锚点字符来恢复可见区域
+                        // 关键：先滚动到锚点，然后再恢复选择（如果选择位置会改变滚动，则放弃恢复选择）
+                        logTextBox.SelectionStart = anchorCharIndex;
+                        logTextBox.SelectionLength = 0;
+                        logTextBox.ScrollToCaret();
+                        
+                        // 恢复用户的选择状态（但只在不会改变滚动位置的情况下）
+                        if (hasRealSelection)
+                        {
+                            // 计算选择位置相对于锚点的偏移
+                            int selectionOffset = currentStart - anchorCharIndex;
+                            
+                            // 如果选择位置在锚点附近（可见区域内），可以安全恢复
+                            // 否则，保持滚动位置在锚点，不恢复选择（避免滚动）
+                            if (selectionOffset >= 0 && selectionOffset < 2000) // 大约可见区域内的字符数
+                            {
+                                // 选择位置在可见区域内，恢复选择
+                                logTextBox.SelectionStart = currentStart;
+                                logTextBox.SelectionLength = currentLength;
+                            }
+                            // 如果选择位置不在可见区域，不恢复选择，保持滚动位置
+                        }
+                    }
+                    else
+                    {
+                        // 在底部：滚动到底部（追加后的新末尾）
+                        logTextBox.SelectionStart = logTextBox.TextLength;
+                        logTextBox.SelectionLength = 0;
+                        logTextBox.ScrollToCaret();
+                    }
                 }
                 finally
                 {
                     // 恢复重绘和布局
                     SendMessage(logTextBox.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
-                    logTextBox.ResumeLayout(false); // false = 不执行挂起时积压的布局更新
-                    logTextBox.Invalidate(); // 触发一次重绘
-                }
-            }
-
-            // 恢复用户的选择状态（如果存在且未被删除）
-            if (hasSelection && savedSelectionStart < logTextBox.TextLength)
-            {
-                // 确保选择位置仍然有效
-                int maxSelectionStart = Math.Max(0, Math.Min(savedSelectionStart, logTextBox.TextLength - 1));
-                int maxSelectionLength = Math.Max(0, Math.Min(savedSelectionLength, logTextBox.TextLength - maxSelectionStart));
-                
-                if (maxSelectionLength > 0)
-                {
-                    logTextBox.SelectionStart = maxSelectionStart;
-                    logTextBox.SelectionLength = maxSelectionLength;
+                    logTextBox.ResumeLayout(false);
+                    logTextBox.Invalidate();
                 }
             }
 
@@ -748,11 +778,24 @@ namespace OpcDAToMSA.UI.Forms
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, string lParam);
         
+        [DllImport("user32.dll")]
+        private static extern int GetScrollPos(IntPtr hWnd, int nBar);
+        
+        [DllImport("user32.dll")]
+        private static extern int SetScrollPos(IntPtr hWnd, int nBar, int nPos, bool bRedraw);
+        
+        private const int SB_VERT = 1; // 垂直滚动条
         private const uint WM_CONTEXTMENU = 0x007B;
         private const int EM_CONTEXTMENU = 0x0315;
         private const uint EM_SETSEL = 0x00B1;
         private const uint EM_REPLACESEL = 0x00C2;
         private const uint WM_SETREDRAW = 0x000B;
+        private const uint EM_GETFIRSTVISIBLELINE = 0x00CE;
+        private const uint EM_LINESCROLL = 0x00B6;
+        private const int WM_VSCROLL = 0x0115;
+        private const int SB_GETPOS = 0x0400;
+        private const int SB_SETPOS = 0x0404;
+        private const int SB_GETRANGE = 0x0406;
         enum DeviceCap
         {
             VERTRES = 10,
